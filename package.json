@@ -2,7 +2,14 @@
   "name": "brito-imoveis",
   "version": "1.0.0",
   "private": true,
-  "description": "Site full stack da Brito Imóveis com Node.js e SQLite.",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=22.5.0" }
+  "description": "Site full stack da Brito Imóveis com Node.js e PostgreSQL",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
 }
