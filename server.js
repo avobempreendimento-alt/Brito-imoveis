@@ -7,11 +7,6 @@ const { Pool } = require('pg');
 const PORT = Number(process.env.PORT || 8000);
 const HOST = process.env.HOST || '0.0.0.0';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'troque-esta-senha';
-const ROOT = __dirname;
-
-if (!process.env.DATABASE_URL) {
-  console.error('ERRO: DATABASE_URL não foi configurada.');
-}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -164,7 +159,8 @@ async function handleApi(req, res, url) {
   }
 
   // ABRIR UM IMÓVEL
-  const propertyMatch = pathname.match(/^\/api\/properties\/(\d+)$/);
+  const propertyMatch =
+    pathname.match(/^\/api\/properties\/(\d+)$/);
 
   if (req.method === 'GET' && propertyMatch) {
     const result = await pool.query(
@@ -181,7 +177,7 @@ async function handleApi(req, res, url) {
     return json(res, 200, result.rows[0]);
   }
 
-  // RECEBER CONTATO / LEAD
+  // CADASTRAR LEAD
   if (req.method === 'POST' && pathname === '/api/leads') {
     try {
       const body = await readJson(req);
@@ -190,9 +186,11 @@ async function handleApi(req, res, url) {
       const phone = String(body.phone || '').trim();
       const email = String(body.email || '').trim();
       const interest = String(body.interest || 'Contato').trim();
+
       const propertyId = body.propertyId
         ? Number(body.propertyId)
         : null;
+
       const message = String(body.message || '').trim();
 
       if (!name || !phone) {
@@ -231,7 +229,7 @@ async function handleApi(req, res, url) {
       });
 
     } catch (error) {
-      console.error(error);
+      console.error('Erro ao cadastrar lead:', error);
 
       return json(res, 400, {
         error: 'Dados inválidos.'
@@ -239,7 +237,7 @@ async function handleApi(req, res, url) {
     }
   }
 
-  // ADMIN - LISTAR LEADS
+  // ADMIN - LEADS
   if (
     pathname === '/api/admin/leads' &&
     req.method === 'GET'
@@ -293,8 +291,9 @@ async function handleApi(req, res, url) {
     }
 
     try {
-      const body = await readJson(req);
-      const p = sanitizePropertyInput(body);
+      const p = sanitizePropertyInput(
+        await readJson(req)
+      );
 
       if (!validProperty(p)) {
         return json(res, 400, {
@@ -351,7 +350,7 @@ async function handleApi(req, res, url) {
       });
 
     } catch (error) {
-      console.error(error);
+      console.error('Erro ao cadastrar imóvel:', error);
 
       return json(res, 400, {
         error: 'Dados inválidos.'
@@ -398,6 +397,49 @@ async function handleApi(req, res, url) {
   });
 }
 
+// PROCURA OS ARQUIVOS DO SITE
+function findStaticFile(requestPath) {
+  const relativePath =
+    requestPath.replace(/^\/+/, '');
+
+  const possibleRoots = [
+    process.cwd(),
+    __dirname,
+    path.join(process.cwd(), 'public'),
+    path.join(__dirname, 'public')
+  ];
+
+  for (const root of possibleRoots) {
+    const candidate =
+      path.resolve(root, relativePath);
+
+    const safeRoot =
+      path.resolve(root);
+
+    if (
+      candidate !== safeRoot &&
+      !candidate.startsWith(
+        safeRoot + path.sep
+      )
+    ) {
+      continue;
+    }
+
+    try {
+      if (
+        fs.existsSync(candidate) &&
+        fs.statSync(candidate).isFile()
+      ) {
+        return candidate;
+      }
+    } catch (error) {
+      // Continua procurando
+    }
+  }
+
+  return null;
+}
+
 function serveStatic(req, res, url) {
   const aliases = {
     '/': '/index.html',
@@ -408,45 +450,39 @@ function serveStatic(req, res, url) {
   const requestPath =
     aliases[url.pathname] || url.pathname;
 
-  const relativePath = requestPath
-    .replace(/^\/+/, '');
+  const filePath =
+    findStaticFile(requestPath);
 
-  const safePath = path.normalize(relativePath);
+  if (!filePath) {
+    console.error(
+      'Arquivo não encontrado:',
+      requestPath,
+      'cwd:',
+      process.cwd(),
+      '__dirname:',
+      __dirname
+    );
 
-  const filePath = path.join(ROOT, safePath);
-
-  if (
-    !filePath.startsWith(ROOT + path.sep) &&
-    filePath !== ROOT
-  ) {
-    return json(res, 403, {
-      error: 'Acesso negado.'
+    res.writeHead(404, {
+      'Content-Type':
+        'text/plain; charset=utf-8'
     });
+
+    return res.end(
+      'Arquivo não encontrado.'
+    );
   }
 
-  fs.stat(filePath, (err, stat) => {
-    if (err || !stat.isFile()) {
-      res.writeHead(404, {
-        'Content-Type':
-          'text/plain; charset=utf-8'
-      });
+  const ext =
+    path.extname(filePath).toLowerCase();
 
-      return res.end(
-        'Arquivo não encontrado.'
-      );
-    }
-
-    const ext =
-      path.extname(filePath).toLowerCase();
-
-    res.writeHead(200, {
-      'Content-Type':
-        mimeTypes[ext] ||
-        'application/octet-stream'
-    });
-
-    fs.createReadStream(filePath).pipe(res);
+  res.writeHead(200, {
+    'Content-Type':
+      mimeTypes[ext] ||
+      'application/octet-stream'
   });
+
+  fs.createReadStream(filePath).pipe(res);
 }
 
 const server = http.createServer(
@@ -469,7 +505,7 @@ const server = http.createServer(
 
     } catch (error) {
       console.error(
-        'Erro interno:',
+        'Erro interno do servidor:',
         error
       );
 
@@ -484,6 +520,22 @@ server.listen(PORT, HOST, () => {
   console.log(
     `Brito Imóveis rodando na porta ${PORT}`
   );
+
+  console.log(
+    'Diretório atual:',
+    process.cwd()
+  );
+
+  console.log(
+    'Diretório do servidor:',
+    __dirname
+  );
+
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'ERRO: DATABASE_URL não configurada.'
+    );
+  }
 
   if (
     ADMIN_TOKEN ===
