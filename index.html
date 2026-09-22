@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <meta
     name="description"
     content="Brito Imóveis — compra, venda e locação de imóveis em Caieiras e região."
@@ -36,7 +37,7 @@
         <img
           src="logo-brito.png"
           alt="Brito Imóveis - Sonhos em bons negócios"
-          class="site-logo"
+          class="brand-logo"
         >
       </a>
 
@@ -110,10 +111,11 @@
             </a>
 
           </div>
+
         </div>
 
 
-        <!-- BUSCA -->
+        <!-- BUSCA DE IMÓVEIS -->
         <form
           class="search-panel"
           id="searchForm"
@@ -155,28 +157,13 @@
             </label>
 
             <select id="preco">
-
-              <option value="">
-                Qualquer valor
-              </option>
-
-              <option value="300000">
-                Até R$ 300 mil
-              </option>
-
-              <option value="500000">
-                Até R$ 500 mil
-              </option>
-
-              <option value="750000">
-                Até R$ 750 mil
-              </option>
-
-              <option value="1000000">
-                Até R$ 1 milhão
-              </option>
-
+              <option value="">Qualquer valor</option>
+              <option value="300000">Até R$ 300 mil</option>
+              <option value="500000">Até R$ 500 mil</option>
+              <option value="750000">Até R$ 750 mil</option>
+              <option value="1000000">Até R$ 1 milhão</option>
             </select>
+
           </div>
 
 
@@ -187,28 +174,13 @@
             </label>
 
             <select id="quartos">
-
-              <option value="">
-                Qualquer
-              </option>
-
-              <option value="1">
-                1+
-              </option>
-
-              <option value="2">
-                2+
-              </option>
-
-              <option value="3">
-                3+
-              </option>
-
-              <option value="4">
-                4+
-              </option>
-
+              <option value="">Qualquer</option>
+              <option value="1">1+</option>
+              <option value="2">2+</option>
+              <option value="3">3+</option>
+              <option value="4">4+</option>
             </select>
+
           </div>
 
 
@@ -236,7 +208,6 @@
         <div class="section-heading">
 
           <div>
-
             <span class="eyebrow">
               Oportunidades
             </span>
@@ -244,7 +215,6 @@
             <h2>
               Imóveis em destaque
             </h2>
-
           </div>
 
           <p
@@ -266,7 +236,6 @@
           class="empty-state hidden"
           id="emptyState"
         >
-
           <h3>
             Nenhum imóvel encontrado
           </h3>
@@ -274,7 +243,6 @@
           <p>
             Ajuste os filtros e tente novamente.
           </p>
-
         </div>
 
       </div>
@@ -292,7 +260,6 @@
         <div class="section-heading">
 
           <div>
-
             <span class="eyebrow">
               Como podemos ajudar
             </span>
@@ -300,7 +267,6 @@
             <h2>
               Serviços imobiliários
             </h2>
-
           </div>
 
         </div>
@@ -443,19 +409,9 @@
             </label>
 
             <select id="ownerInterest">
-
-              <option>
-                Quero vender
-              </option>
-
-              <option>
-                Quero alugar
-              </option>
-
-              <option>
-                Quero administrar
-              </option>
-
+              <option>Quero vender</option>
+              <option>Quero alugar</option>
+              <option>Quero administrar</option>
             </select>
 
           </div>
@@ -505,3 +461,89 @@
   >
 
     <div class="container footer-grid">
+
+      <div>
+
+        <a
+          href="/"
+          class="brand brand-footer"
+          aria-label="Brito Imóveis - Página inicial"
+        >
+          <img
+            src="logo-brito.png"
+            alt="Brito Imóveis - Sonhos em bons negócios"
+            class="brand-logo"
+          >
+        </a>
+
+        <p>
+          Imóveis em Caieiras e região.
+        </p>
+
+      </div>
+
+
+      <div>
+
+        <h3>
+          Navegação
+        </h3>
+
+        <a href="#imoveis">
+          Imóveis
+        </a>
+
+        <a href="#servicos">
+          Serviços
+        </a>
+
+        <a href="#anunciar">
+          Anunciar imóvel
+        </a>
+
+      </div>
+
+
+      <div>
+
+        <h3>
+          Contato
+        </h3>
+
+        <a
+          data-whatsapp
+          data-message="Olá, quero falar com a Brito Imóveis."
+        >
+          (11) 96388-2742
+        </a>
+
+        <a href="mailto:contato@britoimoveis.com.br">
+          contato@britoimoveis.com.br
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <div class="container footer-bottom">
+
+      <small>
+        © <span id="currentYear"></span>
+        Brito Imóveis. Todos os direitos reservados.
+      </small>
+
+      <a href="/admin">
+        Área administrativa
+      </a>
+
+    </div>
+
+  </footer>
+
+
+  <!-- JAVASCRIPT -->
+  <script src="script.js"></script>
+
+</body>
+</html>
