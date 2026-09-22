@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 8000);
 const HOST = process.env.HOST || '0.0.0.0';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const ADMIN_TOKEN = String(process.env.ADMIN_TOKEN || '').trim();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -64,7 +64,8 @@ function readJson(req) {
 }
 
 function isAdmin(req) {
-  return Boolean(ADMIN_TOKEN) && req.headers['x-admin-token'] === ADMIN_TOKEN;
+  const received = String(req.headers['x-admin-token'] || '').trim();
+  return Boolean(ADMIN_TOKEN) && received === ADMIN_TOKEN;
 }
 
 function sanitizePropertyInput(body) {
@@ -235,6 +236,21 @@ async function handleApi(req, res, url) {
         error: 'Dados inválidos.'
       });
     }
+  }
+
+  // ADMIN - TESTAR LOGIN (não acessa o banco de dados)
+  if (pathname === '/api/admin/login' && req.method === 'GET') {
+    if (!ADMIN_TOKEN) {
+      return json(res, 503, {
+        error: 'ADMIN_TOKEN não configurado no Vercel.'
+      });
+    }
+
+    if (!isAdmin(req)) {
+      return json(res, 401, { error: 'Senha inválida.' });
+    }
+
+    return json(res, 200, { ok: true });
   }
 
   // ADMIN - LEADS
