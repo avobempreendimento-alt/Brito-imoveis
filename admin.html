@@ -1,39 +1,12 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel | Brito Imóveis</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css" />
-</head>
-<body class="admin-body">
-  <header class="site-header"><div class="container header-inner"><a href="/" class="brand"><span class="brand-mark">BI</span><span class="brand-name">Brito Imóveis</span></a><a class="btn btn-outline" href="/">Ver site</a></div></header>
-  <main class="admin-main container">
-    <section class="admin-login" id="adminLogin"><span class="eyebrow">Área restrita</span><h1>Painel administrativo</h1><p>Informe o token do administrador configurado no servidor.</p><div class="admin-token-row"><input id="adminToken" type="password" placeholder="Token do administrador" /><button id="adminAccess" class="btn btn-primary">Entrar</button></div><p id="adminStatus" class="form-status"></p></section>
-    <div id="adminPanel" class="hidden">
-      <div class="admin-heading"><div><span class="eyebrow">Gestão</span><h1>Painel administrativo</h1></div><button id="adminLogout" class="btn btn-outline">Sair</button></div>
-      <div class="admin-tabs"><button class="tab active" data-tab="propertiesPanel">Imóveis</button><button class="tab" data-tab="leadsPanel">Leads</button></div>
-      <section id="propertiesPanel" class="admin-panel-section">
-        <div class="admin-grid">
-          <form class="admin-card" id="propertyForm"><h2>Novo imóvel</h2>
-            <div class="form-grid">
-              <div class="field-group full"><label>Título</label><input id="pTitle" required /></div>
-              <div class="field-group"><label>Tipo</label><select id="pType"><option>Apartamento</option><option>Casa</option><option>Sobrado</option><option>Terreno</option><option>Comercial</option></select></div>
-              <div class="field-group"><label>Status</label><select id="pStatus"><option>Venda</option><option>Locação</option></select></div>
-              <div class="field-group"><label>Cidade</label><input id="pCity" value="Caieiras" required /></div><div class="field-group"><label>Bairro</label><input id="pNeighborhood" required /></div>
-              <div class="field-group"><label>Preço</label><input id="pPrice" type="number" min="0" required /></div><div class="field-group"><label>Área (m²)</label><input id="pArea" type="number" min="0" required /></div>
-              <div class="field-group"><label>Quartos</label><input id="pBedrooms" type="number" min="0" value="0" /></div><div class="field-group"><label>Banheiros</label><input id="pBathrooms" type="number" min="0" value="0" /></div>
-              <div class="field-group"><label>Vagas</label><input id="pParking" type="number" min="0" value="0" /></div><div class="field-group"><label>Imagem (URL)</label><input id="pImage" type="url" required /></div>
-              <div class="field-group full"><label>Descrição</label><textarea id="pDescription" rows="4"></textarea></div>
-            </div>
-            <button class="btn btn-primary" type="submit">Cadastrar imóvel</button><p id="propertyFormStatus" class="form-status"></p>
-          </form>
-          <section class="admin-card"><div class="admin-card-heading"><h2>Imóveis cadastrados</h2><span id="adminPropertyCount"></span></div><div class="admin-list" id="adminProperties"></div></section>
-        </div>
-      </section>
-      <section id="leadsPanel" class="admin-panel-section hidden"><section class="admin-card"><div class="admin-card-heading"><h2>Leads recebidos</h2><span id="adminLeadCount"></span></div><div class="admin-list" id="adminLeads"></div></section></section>
-    </div>
-  </main>
-  <script src="admin.js"></script>
-</body>
-</html>
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel Administrativo | Brito Imóveis</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head>
+<body class="admin-body luxury-admin">
+<section class="admin-login" id="adminLogin"><div class="admin-login-brand"><span class="brand-mark">BI</span><div><strong>BRITO IMÓVEIS</strong><small>ACESSO RESTRITO</small></div></div><span class="eyebrow">Somente administradores</span><h1>Painel Administrativo</h1><p>Entre com a senha administrativa para gerenciar imóveis e contatos.</p><div class="admin-token-row"><input id="adminToken" type="password" autocomplete="current-password" placeholder="Senha do administrador"><button id="adminAccess" class="btn btn-primary">Entrar</button></div><p id="adminStatus" class="form-status"></p><a href="/" class="admin-back">← Voltar ao site</a></section>
+<div id="adminPanel" class="hidden admin-shell">
+<aside class="admin-sidebar"><a href="/" class="admin-logo"><span class="brand-mark">BI</span><span>BRITO<br><small>IMÓVEIS</small></span></a><nav><button class="side-tab active" data-tab="propertiesPanel">⌂ <span>Meus Imóveis</span></button><button class="side-tab" data-tab="newPanel">＋ <span>Adicionar Imóvel</span></button><button class="side-tab" data-tab="importPanel">⇧ <span>Importar em Massa</span></button><button class="side-tab" data-tab="leadsPanel">☷ <span>Clientes / Leads</span></button></nav><div class="restricted-note">🔐 <strong>Acesso restrito</strong><span>Apenas administradores podem cadastrar e alterar imóveis.</span></div><button id="adminLogout" class="side-logout">↪ Sair</button></aside>
+<main class="admin-dashboard"><header class="admin-top"><div><h1>Painel Administrativo</h1><p>Gerencie seus imóveis e oportunidades.</p></div><div class="admin-user"><span>A</span><div><strong>Administrador</strong><small>Brito Imóveis</small></div></div></header>
+<section class="admin-stats"><article><small>Total de imóveis</small><strong id="statProperties">—</strong></article><article><small>Leads recebidos</small><strong id="statLeads">—</strong></article><article><small>Disponíveis</small><strong id="statAvailable">—</strong></article></section>
+<section id="propertiesPanel" class="admin-panel-section"><div class="panel-title-row"><div><h2>Meus Imóveis</h2><p>Pesquise, edite ou exclua anúncios.</p></div><input id="adminSearch" placeholder="Buscar por título, cidade ou bairro..."></div><div class="admin-card"><div class="admin-list" id="adminProperties"></div></div></section>
+<section id="newPanel" class="admin-panel-section hidden"><form class="admin-card property-editor" id="propertyForm"><div class="admin-card-heading"><div><h2 id="formTitle">Adicionar novo imóvel</h2><p>Preencha os dados do anúncio.</p></div><button type="button" id="cancelEdit" class="btn btn-outline hidden">Cancelar edição</button></div><input type="hidden" id="pId"><div class="form-grid"><div class="field-group full"><label>Título</label><input id="pTitle" required></div><div class="field-group"><label>Tipo</label><select id="pType"><option>Apartamento</option><option>Casa</option><option>Sobrado</option><option>Terreno</option><option>Comercial</option></select></div><div class="field-group"><label>Status</label><select id="pStatus"><option>Venda</option><option>Locação</option></select></div><div class="field-group"><label>Cidade</label><input id="pCity" value="Caieiras" required></div><div class="field-group"><label>Bairro</label><input id="pNeighborhood" required></div><div class="field-group"><label>Preço</label><input id="pPrice" type="number" min="0" required></div><div class="field-group"><label>Área (m²)</label><input id="pArea" type="number" min="0" required></div><div class="field-group"><label>Quartos</label><input id="pBedrooms" type="number" min="0" value="0"></div><div class="field-group"><label>Banheiros</label><input id="pBathrooms" type="number" min="0" value="0"></div><div class="field-group"><label>Vagas</label><input id="pParking" type="number" min="0" value="0"></div><div class="field-group"><label>Foto principal (URL)</label><input id="pImage" type="url" required placeholder="https://..."></div><div class="field-group full"><label>Descrição</label><textarea id="pDescription" rows="5"></textarea></div></div><button class="btn btn-primary" type="submit" id="saveProperty">Publicar imóvel</button><p id="propertyFormStatus" class="form-status"></p></form></section>
+<section id="importPanel" class="admin-panel-section hidden"><div class="admin-card bulk-card"><span class="bulk-icon">⇧</span><h2>Importação em Massa</h2><p>Cadastre dezenas ou centenas de imóveis de uma vez com uma planilha CSV.</p><a class="btn btn-outline" href="modelo-imoveis.csv" download>Baixar modelo da planilha</a><label class="drop-zone"><input id="csvFile" type="file" accept=".csv,text/csv"><strong>Selecionar planilha CSV</strong><span>Use o modelo para manter as colunas corretas.</span></label><button id="importCsv" class="btn btn-primary" disabled>Importar imóveis</button><p id="importStatus" class="form-status"></p><div id="importPreview" class="import-preview"></div></div></section>
+<section id="leadsPanel" class="admin-panel-section hidden"><div class="admin-card"><div class="admin-card-heading"><h2>Clientes / Leads</h2><span id="adminLeadCount"></span></div><div class="admin-list" id="adminLeads"></div></div></section>
+</main></div><script src="admin.js"></script></body></html>

@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 8000);
 const HOST = process.env.HOST || '0.0.0.0';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'troque-esta-senha';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -64,7 +64,7 @@ function readJson(req) {
 }
 
 function isAdmin(req) {
-  return req.headers['x-admin-token'] === ADMIN_TOKEN;
+  return Boolean(ADMIN_TOKEN) && req.headers['x-admin-token'] === ADMIN_TOKEN;
 }
 
 function sanitizePropertyInput(body) {
@@ -356,6 +356,45 @@ async function handleApi(req, res, url) {
         error: 'Dados inválidos.'
       });
     }
+  }
+
+  // ADMIN - IMPORTAR IMÓVEIS EM MASSA
+  if (pathname === '/api/admin/properties/bulk' && req.method === 'POST') {
+    if (!isAdmin(req)) return json(res, 401, { error: 'Não autorizado.' });
+    try {
+      const body = await readJson(req);
+      const items = Array.isArray(body.properties) ? body.properties.slice(0, 1000) : [];
+      if (!items.length) return json(res, 400, { error: 'A planilha não contém imóveis.' });
+      const client = await pool.connect();
+      let inserted = 0;
+      try {
+        await client.query('BEGIN');
+        for (const raw of items) {
+          const p = sanitizePropertyInput(raw);
+          if (!validProperty(p)) throw new Error(`Linha inválida: ${p.title || 'sem título'}`);
+          await client.query(`INSERT INTO properties (title,type,city,neighborhood,price,bedrooms,bathrooms,parking,area,image,description,status,featured) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [p.title,p.type,p.city,p.neighborhood,p.price,p.bedrooms,p.bathrooms,p.parking,p.area,p.image,p.description,p.status,p.featured]);
+          inserted++;
+        }
+        await client.query('COMMIT');
+      } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+      return json(res, 201, { ok: true, inserted });
+    } catch (error) {
+      console.error('Erro na importação em massa:', error);
+      return json(res, 400, { error: error.message || 'Falha na importação.' });
+    }
+  }
+
+  // ADMIN - EDITAR IMÓVEL
+  const editPropertyMatch = pathname.match(/^\/api\/admin\/properties\/(\d+)$/);
+  if (editPropertyMatch && req.method === 'PUT') {
+    if (!isAdmin(req)) return json(res, 401, { error: 'Não autorizado.' });
+    try {
+      const p = sanitizePropertyInput(await readJson(req));
+      if (!validProperty(p)) return json(res, 400, { error: 'Preencha os campos obrigatórios corretamente.' });
+      const result = await pool.query(`UPDATE properties SET title=$1,type=$2,city=$3,neighborhood=$4,price=$5,bedrooms=$6,bathrooms=$7,parking=$8,area=$9,image=$10,description=$11,status=$12,featured=$13 WHERE id=$14`, [p.title,p.type,p.city,p.neighborhood,p.price,p.bedrooms,p.bathrooms,p.parking,p.area,p.image,p.description,p.status,p.featured,Number(editPropertyMatch[1])]);
+      if (!result.rowCount) return json(res, 404, { error: 'Imóvel não encontrado.' });
+      return json(res, 200, { ok: true });
+    } catch (error) { return json(res, 400, { error: 'Dados inválidos.' }); }
   }
 
   // ADMIN - EXCLUIR IMÓVEL

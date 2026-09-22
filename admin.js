@@ -1,68 +1,18 @@
-const loginBox = document.getElementById('adminLogin');
-const panel = document.getElementById('adminPanel');
-const tokenInput = document.getElementById('adminToken');
-const statusEl = document.getElementById('adminStatus');
-let token = sessionStorage.getItem('britoAdminToken') || '';
-
-function headers() { return { 'Content-Type': 'application/json', 'X-Admin-Token': token }; }
-const money = value => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 }).format(value);
-const esc = value => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[ch]));
-
-async function authenticate(candidate) {
-  token = candidate;
-  const response = await fetch('/api/admin/properties', { headers: headers() });
-  if (!response.ok) { token = ''; statusEl.textContent = 'Token inválido.'; return false; }
-  sessionStorage.setItem('britoAdminToken', token);
-  loginBox.classList.add('hidden'); panel.classList.remove('hidden');
-  await refreshAll(); return true;
-}
-
-document.getElementById('adminAccess').addEventListener('click', () => authenticate(tokenInput.value));
-tokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') authenticate(tokenInput.value); });
-document.getElementById('adminLogout').addEventListener('click', () => { sessionStorage.removeItem('britoAdminToken'); location.reload(); });
-
-async function refreshProperties() {
-  const response = await fetch('/api/admin/properties', { headers: headers() });
-  if (!response.ok) return;
-  const list = await response.json();
-  document.getElementById('adminPropertyCount').textContent = `${list.length} cadastrados`;
-  document.getElementById('adminProperties').innerHTML = list.map(p => `<article class="admin-list-item"><img src="${esc(p.image)}" alt=""><div><strong>${esc(p.title)}</strong><span>${esc(p.neighborhood)}, ${esc(p.city)} · ${money(p.price)}</span></div><button class="delete-button" data-delete="${p.id}" aria-label="Excluir imóvel">Excluir</button></article>`).join('') || '<p>Nenhum imóvel cadastrado.</p>';
-  document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm('Excluir este imóvel?')) return;
-    await fetch(`/api/admin/properties/${btn.dataset.delete}`, { method:'DELETE', headers: headers() });
-    refreshProperties();
-  }));
-}
-
-async function refreshLeads() {
-  const response = await fetch('/api/admin/leads', { headers: headers() });
-  if (!response.ok) return;
-  const list = await response.json();
-  document.getElementById('adminLeadCount').textContent = `${list.length} recebidos`;
-  document.getElementById('adminLeads').innerHTML = list.map(l => `<article class="lead-list-item"><div><strong>${esc(l.name)}</strong><span>${esc(l.phone)}${l.email ? ` · ${esc(l.email)}` : ''}</span><span>${esc(l.interest)}${l.property_title ? ` · ${esc(l.property_title)}` : ''}</span></div><p>${esc(l.message || '')}</p><small>${new Date(l.created_at + 'Z').toLocaleString('pt-BR')}</small></article>`).join('') || '<p>Nenhum lead recebido.</p>';
-}
-
-async function refreshAll() { await Promise.all([refreshProperties(), refreshLeads()]); }
-
-document.getElementById('propertyForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const status = document.getElementById('propertyFormStatus');
-  const payload = {
-    title: document.getElementById('pTitle').value, type: document.getElementById('pType').value, status: document.getElementById('pStatus').value,
-    city: document.getElementById('pCity').value, neighborhood: document.getElementById('pNeighborhood').value, price: Number(document.getElementById('pPrice').value), area: Number(document.getElementById('pArea').value),
-    bedrooms: Number(document.getElementById('pBedrooms').value), bathrooms: Number(document.getElementById('pBathrooms').value), parking: Number(document.getElementById('pParking').value),
-    image: document.getElementById('pImage').value, description: document.getElementById('pDescription').value
-  };
-  status.textContent = 'Salvando...';
-  const response = await fetch('/api/admin/properties', { method:'POST', headers: headers(), body: JSON.stringify(payload) });
-  const data = await response.json();
-  if (response.ok) { e.currentTarget.reset(); document.getElementById('pCity').value = 'Caieiras'; status.textContent = 'Imóvel cadastrado com sucesso.'; refreshProperties(); }
-  else status.textContent = data.error || 'Não foi possível cadastrar.';
-});
-
-document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); tab.classList.add('active');
-  document.querySelectorAll('.admin-panel-section').forEach(x => x.classList.add('hidden')); document.getElementById(tab.dataset.tab).classList.remove('hidden');
-}));
-
-if (token) authenticate(token);
+const loginBox=document.getElementById('adminLogin'),panel=document.getElementById('adminPanel'),tokenInput=document.getElementById('adminToken'),statusEl=document.getElementById('adminStatus');let token=sessionStorage.getItem('britoAdminToken')||'',properties=[];const headers=()=>({'Content-Type':'application/json','X-Admin-Token':token}),money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(Number(v)||0),esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
+function showTab(id){document.querySelectorAll('.admin-panel-section').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.side-tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));}
+async function authenticate(candidate){token=candidate.trim();statusEl.textContent='Verificando...';const r=await fetch('/api/admin/properties',{headers:headers()});if(!r.ok){token='';statusEl.textContent='Senha inválida.';return false}sessionStorage.setItem('britoAdminToken',token);loginBox.classList.add('hidden');panel.classList.remove('hidden');await refreshAll();return true}
+document.getElementById('adminAccess').onclick=()=>authenticate(tokenInput.value);tokenInput.onkeydown=e=>{if(e.key==='Enter')authenticate(tokenInput.value)};document.getElementById('adminLogout').onclick=()=>{sessionStorage.removeItem('britoAdminToken');location.reload()};document.querySelectorAll('.side-tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function renderProperties(list){document.getElementById('adminProperties').innerHTML=list.map(p=>`<article class="admin-property-row"><img src="${esc(p.image)}" alt=""><div class="admin-property-main"><strong>${esc(p.title)}</strong><span>${esc(p.neighborhood)}, ${esc(p.city)}</span></div><span class="admin-type">${esc(p.status)}</span><strong>${money(p.price)}</strong><div class="admin-actions"><button data-edit="${p.id}">Editar</button><button class="danger" data-delete="${p.id}">Excluir</button></div></article>`).join('')||'<p>Nenhum imóvel cadastrado.</p>';document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editProperty(Number(b.dataset.edit)));document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteProperty(Number(b.dataset.delete)))}
+async function refreshProperties(){const r=await fetch('/api/admin/properties',{headers:headers()});if(!r.ok)return;properties=await r.json();document.getElementById('statProperties').textContent=properties.length;document.getElementById('statAvailable').textContent=properties.filter(p=>['Venda','Locação'].includes(p.status)).length;renderProperties(properties)}
+async function refreshLeads(){const r=await fetch('/api/admin/leads',{headers:headers()});if(!r.ok)return;const list=await r.json();document.getElementById('statLeads').textContent=list.length;document.getElementById('adminLeadCount').textContent=`${list.length} recebidos`;document.getElementById('adminLeads').innerHTML=list.map(l=>`<article class="lead-list-item"><div><strong>${esc(l.name)}</strong><span>${esc(l.phone)}${l.email?` · ${esc(l.email)}`:''}</span><span>${esc(l.interest)}${l.property_title?` · ${esc(l.property_title)}`:''}</span></div><p>${esc(l.message||'')}</p><small>${new Date(l.created_at).toLocaleString('pt-BR')}</small></article>`).join('')||'<p>Nenhum lead recebido.</p>'}
+async function refreshAll(){await Promise.all([refreshProperties(),refreshLeads()])}
+document.getElementById('adminSearch').oninput=e=>{const q=e.target.value.toLowerCase();renderProperties(properties.filter(p=>`${p.title} ${p.city} ${p.neighborhood}`.toLowerCase().includes(q)))};
+function payload(){return{title:pTitle.value,type:pType.value,status:pStatus.value,city:pCity.value,neighborhood:pNeighborhood.value,price:Number(pPrice.value),area:Number(pArea.value),bedrooms:Number(pBedrooms.value),bathrooms:Number(pBathrooms.value),parking:Number(pParking.value),image:pImage.value,description:pDescription.value}}
+propertyForm.onsubmit=async e=>{e.preventDefault();const id=pId.value,r=await fetch(id?`/api/admin/properties/${id}`:'/api/admin/properties',{method:id?'PUT':'POST',headers:headers(),body:JSON.stringify(payload())}),data=await r.json();propertyFormStatus.textContent=r.ok?(id?'Imóvel atualizado com sucesso.':'Imóvel cadastrado com sucesso.'):(data.error||'Não foi possível salvar.');if(r.ok){resetForm();await refreshProperties();showTab('propertiesPanel')}};
+function editProperty(id){const p=properties.find(x=>Number(x.id)===id);if(!p)return;pId.value=p.id;pTitle.value=p.title;pType.value=p.type;pStatus.value=p.status;pCity.value=p.city;pNeighborhood.value=p.neighborhood;pPrice.value=p.price;pArea.value=p.area;pBedrooms.value=p.bedrooms;pBathrooms.value=p.bathrooms;pParking.value=p.parking;pImage.value=p.image;pDescription.value=p.description||'';formTitle.textContent='Editar imóvel';saveProperty.textContent='Salvar alterações';cancelEdit.classList.remove('hidden');showTab('newPanel')}
+function resetForm(){propertyForm.reset();pId.value='';pCity.value='Caieiras';formTitle.textContent='Adicionar novo imóvel';saveProperty.textContent='Publicar imóvel';cancelEdit.classList.add('hidden')}cancelEdit.onclick=()=>{resetForm();showTab('propertiesPanel')};
+async function deleteProperty(id){if(!confirm('Excluir este imóvel?'))return;await fetch(`/api/admin/properties/${id}`,{method:'DELETE',headers:headers()});refreshProperties()}
+function parseCSV(text){const rows=[];let row=[],cell='',quote=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(c==='"'&&quote&&n==='"'){cell+='"';i++}else if(c==='"')quote=!quote;else if(c===','&&!quote){row.push(cell.trim());cell=''}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&n==='\n')i++;row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell=''}else cell+=c}if(cell||row.length){row.push(cell.trim());rows.push(row)}if(rows.length<2)return[];const h=rows[0].map(x=>x.toLowerCase());return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]??''])))}let csvItems=[];
+csvFile.onchange=async()=>{const f=csvFile.files[0];if(!f)return;csvItems=parseCSV(await f.text());importCsv.disabled=!csvItems.length;importPreview.textContent=csvItems.length?`${csvItems.length} imóveis encontrados na planilha.`:'Nenhuma linha válida encontrada.'};
+importCsv.onclick=async()=>{if(!csvItems.length)return;importCsv.disabled=true;importStatus.textContent='Importando...';const r=await fetch('/api/admin/properties/bulk',{method:'POST',headers:headers(),body:JSON.stringify({properties:csvItems})}),data=await r.json();importStatus.textContent=r.ok?`${data.inserted} imóveis importados com sucesso.`:(data.error||'Falha na importação.');if(r.ok){csvItems=[];csvFile.value='';importPreview.textContent='';await refreshProperties()}importCsv.disabled=false};
+if(token)authenticate(token);

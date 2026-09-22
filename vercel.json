@@ -12,7 +12,9 @@
           "style.css",
           "script.js",
           "detail.js",
-          "admin.js"
+          "admin.js",
+          "hero-bg.png",
+          "modelo-imoveis.csv"
         ]
       }
     }
