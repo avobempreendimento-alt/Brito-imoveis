@@ -17,7 +17,8 @@ const headers = () => ({
 const money = value =>
   new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: 'BRL'
+    currency: 'BRL',
+    maximumFractionDigits: 0
   }).format(Number(value) || 0);
 
 const esc = value =>
@@ -29,18 +30,33 @@ const esc = value =>
     '"': '&quot;'
   }[char]));
 
+/* =========================
+   NAVEGAÇÃO
+========================= */
+
 function showTab(id) {
   document.querySelectorAll('.admin-panel-section').forEach(section => {
     section.classList.add('hidden');
   });
 
   const target = $(id);
-  if (target) target.classList.remove('hidden');
+
+  if (target) {
+    target.classList.remove('hidden');
+  }
 
   document.querySelectorAll('.side-tab').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === id);
   });
 }
+
+document.querySelectorAll('.side-tab').forEach(button => {
+  button.onclick = () => showTab(button.dataset.tab);
+});
+
+/* =========================
+   LOGIN
+========================= */
 
 async function authenticate(candidate) {
   token = String(candidate || '').trim();
@@ -98,34 +114,38 @@ tokenInput.onkeydown = event => {
 
 $('adminLogout').onclick = () => {
   sessionStorage.removeItem('britoAdminToken');
+  token = '';
   location.reload();
 };
 
-document.querySelectorAll('.side-tab').forEach(button => {
-  button.onclick = () => showTab(button.dataset.tab);
-});
+/* =========================
+   IMÓVEIS
+========================= */
 
-function getMainImage(property) {
+function getPropertyPrice(property) {
+  return (
+    property.sale_price ??
+    property.rent_price ??
+    property.price ??
+    0
+  );
+}
+
+function getPropertyImage(property) {
   if (property.image) return property.image;
 
-  if (Array.isArray(property.images) && property.images.length) {
-    const cover = property.images.find(image => image.is_cover);
-    return cover?.image_url || property.images[0]?.image_url || '';
+  if (
+    Array.isArray(property.images) &&
+    property.images.length
+  ) {
+    const first = property.images[0];
+
+    if (typeof first === 'string') return first;
+
+    return first.url || first.image_url || '';
   }
 
   return '';
-}
-
-function getDisplayPrice(property) {
-  if (property.purpose === 'Locação') {
-    return `${money(property.rent_price)}/mês`;
-  }
-
-  if (property.purpose === 'Venda e Locação') {
-    return `${money(property.sale_price)} | ${money(property.rent_price)}/mês`;
-  }
-
-  return money(property.sale_price ?? property.price);
 }
 
 function renderProperties(list) {
@@ -137,10 +157,11 @@ function renderProperties(list) {
   }
 
   container.innerHTML = list.map(property => {
-    const image = getMainImage(property);
+    const image = getPropertyImage(property);
 
     return `
       <article class="admin-property-row">
+
         ${
           image
             ? `<img src="${esc(image)}" alt="${esc(property.title)}">`
@@ -156,27 +177,42 @@ function renderProperties(list) {
         </div>
 
         <span class="admin-type">
-          ${esc(property.purpose || property.status || '')}
+          ${esc(
+            property.property_status ||
+            property.status ||
+            'Disponível'
+          )}
         </span>
 
-        <strong>${getDisplayPrice(property)}</strong>
+        <strong>
+          ${money(getPropertyPrice(property))}
+        </strong>
 
         <div class="admin-actions">
-          <button data-edit="${property.id}">Editar</button>
-          <button class="danger" data-delete="${property.id}">
+          <button data-edit="${property.id}">
+            Editar
+          </button>
+
+          <button
+            class="danger"
+            data-delete="${property.id}"
+          >
             Excluir
           </button>
         </div>
+
       </article>
     `;
   }).join('');
 
   document.querySelectorAll('[data-edit]').forEach(button => {
-    button.onclick = () => editProperty(Number(button.dataset.edit));
+    button.onclick = () =>
+      editProperty(Number(button.dataset.edit));
   });
 
   document.querySelectorAll('[data-delete]').forEach(button => {
-    button.onclick = () => deleteProperty(Number(button.dataset.delete));
+    button.onclick = () =>
+      deleteProperty(Number(button.dataset.delete));
   });
 }
 
@@ -194,32 +230,37 @@ async function refreshProperties() {
     }
 
     if (!response.ok) {
-      $('statProperties').textContent = '—';
-      $('statAvailable').textContent = '—';
+      console.error('Erro ao carregar imóveis.');
       return;
     }
 
-    const data = await response.json();
-
-    properties = Array.isArray(data) ? data : [];
+    properties = await response.json();
 
     $('statProperties').textContent = properties.length;
 
-    $('statAvailable').textContent = properties.filter(property => {
-      const situation =
-        property.property_status ||
-        property.propertyStatus ||
-        'Disponível';
+    $('statAvailable').textContent =
+      properties.filter(property => {
+        const status =
+          property.property_status ||
+          property.status;
 
-      return situation === 'Disponível';
-    }).length;
+        return (
+          status === 'Disponível' ||
+          status === 'Venda' ||
+          status === 'Locação' ||
+          status === 'Venda e Locação'
+        );
+      }).length;
 
     renderProperties(properties);
   } catch (error) {
-    $('statProperties').textContent = '—';
-    $('statAvailable').textContent = '—';
+    console.error(error);
   }
 }
+
+/* =========================
+   LEADS
+========================= */
 
 async function refreshLeads() {
   try {
@@ -228,49 +269,53 @@ async function refreshLeads() {
       cache: 'no-store'
     });
 
-    if (!response.ok) {
-      $('statLeads').textContent = '—';
-      return;
-    }
+    if (!response.ok) return;
 
-    const data = await response.json();
-    const list = Array.isArray(data) ? data : [];
+    const list = await response.json();
 
     $('statLeads').textContent = list.length;
-    $('adminLeadCount').textContent = `${list.length} recebidos`;
+    $('adminLeadCount').textContent =
+      `${list.length} recebidos`;
 
-    $('adminLeads').innerHTML = list.map(lead => `
-      <article class="lead-list-item">
-        <div>
-          <strong>${esc(lead.name)}</strong>
+    $('adminLeads').innerHTML =
+      list.map(lead => `
+        <article class="lead-list-item">
 
-          <span>
-            ${esc(lead.phone || '')}
-            ${lead.email ? ` · ${esc(lead.email)}` : ''}
-          </span>
+          <div>
+            <strong>${esc(lead.name)}</strong>
 
-          <span>
-            ${esc(lead.interest || '')}
-            ${lead.property_title
-              ? ` · ${esc(lead.property_title)}`
-              : ''}
-          </span>
-        </div>
+            <span>
+              ${esc(lead.phone)}
+              ${lead.email ? ` · ${esc(lead.email)}` : ''}
+            </span>
 
-        <p>${esc(lead.message || '')}</p>
+            <span>
+              ${esc(lead.interest || '')}
+              ${
+                lead.property_title
+                  ? ` · ${esc(lead.property_title)}`
+                  : ''
+              }
+            </span>
+          </div>
 
-        <small>
-          ${
-            lead.created_at
-              ? new Date(lead.created_at).toLocaleString('pt-BR')
-              : ''
-          }
-        </small>
-      </article>
-    `).join('') || '<p>Nenhum lead recebido.</p>';
+          <p>${esc(lead.message || '')}</p>
+
+          <small>
+            ${
+              lead.created_at
+                ? new Date(lead.created_at)
+                    .toLocaleString('pt-BR')
+                : ''
+            }
+          </small>
+
+        </article>
+      `).join('') ||
+      '<p>Nenhum lead recebido.</p>';
 
   } catch (error) {
-    $('statLeads').textContent = '—';
+    console.error(error);
   }
 }
 
@@ -281,41 +326,55 @@ async function refreshAll() {
   ]);
 }
 
+/* =========================
+   PESQUISA
+========================= */
+
 $('adminSearch').oninput = event => {
-  const search = event.target.value.toLowerCase().trim();
+  const query = event.target.value
+    .trim()
+    .toLowerCase();
 
-  const filtered = properties.filter(property => {
-    const text = `
-      ${property.title || ''}
-      ${property.city || ''}
-      ${property.neighborhood || ''}
-    `.toLowerCase();
-
-    return text.includes(search);
-  });
+  const filtered = properties.filter(property =>
+    `${property.title || ''} ${property.city || ''} ${property.neighborhood || ''}`
+      .toLowerCase()
+      .includes(query)
+  );
 
   renderProperties(filtered);
 };
 
+/* =========================
+   VENDA / LOCAÇÃO
+========================= */
+
 function updatePriceFields() {
   const purpose = $('pPurpose').value;
 
-  $('salePriceGroup').classList.toggle(
-    'hidden',
-    purpose === 'Locação'
-  );
+  const saleGroup = $('salePriceGroup');
+  const rentGroup = $('rentPriceGroup');
 
-  $('rentPriceGroup').classList.toggle(
-    'hidden',
-    purpose === 'Venda'
-  );
+  if (purpose === 'Venda') {
+    saleGroup.classList.remove('hidden');
+    rentGroup.classList.add('hidden');
+  } else if (purpose === 'Locação') {
+    saleGroup.classList.add('hidden');
+    rentGroup.classList.remove('hidden');
+  } else {
+    saleGroup.classList.remove('hidden');
+    rentGroup.classList.remove('hidden');
+  }
 }
 
 $('pPurpose').onchange = updatePriceFields;
 
+/* =========================
+   FOTOS - PREVIEW
+========================= */
+
 function previewSelectedImages() {
-  const preview = $('imagePreview');
   const files = Array.from($('pImages').files || []);
+  const preview = $('imagePreview');
 
   preview.innerHTML = '';
 
@@ -327,7 +386,10 @@ function previewSelectedImages() {
       item.className = 'property-image-preview-item';
 
       item.innerHTML = `
-        <img src="${event.target.result}" alt="Foto ${index + 1}">
+        <img
+          src="${event.target.result}"
+          alt="Foto ${index + 1}"
+        >
         ${index === 0 ? '<span>Capa</span>' : ''}
       `;
 
@@ -339,6 +401,10 @@ function previewSelectedImages() {
 }
 
 $('pImages').onchange = previewSelectedImages;
+
+/* =========================
+   DADOS DO FORMULÁRIO
+========================= */
 
 function propertyPayload() {
   const purpose = $('pPurpose').value;
@@ -358,24 +424,84 @@ function propertyPayload() {
     type: $('pType').value,
     purpose: purpose,
     property_status: $('pPropertyStatus').value,
+
     city: $('pCity').value.trim(),
     neighborhood: $('pNeighborhood').value.trim(),
+
     sale_price: salePrice,
     rent_price: rentPrice,
+
     price: salePrice || rentPrice || 0,
+
+    // Mantemos status também para compatibilidade
+    // com o backend atual.
     status: purpose,
+
     area: Number($('pArea').value || 0),
     bedrooms: Number($('pBedrooms').value || 0),
     bathrooms: Number($('pBathrooms').value || 0),
     parking: Number($('pParking').value || 0),
+
     description: $('pDescription').value.trim()
   };
 }
 
+function validateProperty(data) {
+  if (!data.title) {
+    return 'Preencha o título do imóvel.';
+  }
+
+  if (!data.city) {
+    return 'Preencha a cidade.';
+  }
+
+  if (!data.neighborhood) {
+    return 'Preencha o bairro.';
+  }
+
+  if (!data.area || data.area <= 0) {
+    return 'Preencha uma área válida.';
+  }
+
+  if (
+    data.purpose === 'Venda' &&
+    (!data.sale_price || data.sale_price <= 0)
+  ) {
+    return 'Preencha o preço de venda.';
+  }
+
+  if (
+    data.purpose === 'Locação' &&
+    (!data.rent_price || data.rent_price <= 0)
+  ) {
+    return 'Preencha o valor do aluguel.';
+  }
+
+  if (
+    data.purpose === 'Venda e Locação' &&
+    (
+      !data.sale_price ||
+      data.sale_price <= 0 ||
+      !data.rent_price ||
+      data.rent_price <= 0
+    )
+  ) {
+    return 'Preencha o preço de venda e o valor do aluguel.';
+  }
+
+  return '';
+}
+
+/* =========================
+   ENVIO DE FOTOS
+========================= */
+
 async function uploadPropertyImages(propertyId) {
   const files = Array.from($('pImages').files || []);
 
-  if (!files.length) return true;
+  if (!files.length) {
+    return true;
+  }
 
   const formData = new FormData();
 
@@ -402,12 +528,17 @@ async function uploadPropertyImages(propertyId) {
     } catch {}
 
     throw new Error(
-      data.error || 'Não foi possível enviar as fotos.'
+      data.error ||
+      'Não foi possível enviar as fotos.'
     );
   }
 
   return true;
 }
+
+/* =========================
+   CADASTRAR / EDITAR
+========================= */
 
 $('propertyForm').onsubmit = async event => {
   event.preventDefault();
@@ -415,6 +546,16 @@ $('propertyForm').onsubmit = async event => {
   const id = $('pId').value;
   const status = $('propertyFormStatus');
   const saveButton = $('saveProperty');
+
+  const dataToSend = propertyPayload();
+
+  const validationError =
+    validateProperty(dataToSend);
+
+  if (validationError) {
+    status.textContent = validationError;
+    return;
+  }
 
   status.textContent = id
     ? 'Salvando alterações...'
@@ -430,7 +571,7 @@ $('propertyForm').onsubmit = async event => {
       {
         method: id ? 'PUT' : 'POST',
         headers: headers(),
-        body: JSON.stringify(propertyPayload())
+        body: JSON.stringify(dataToSend)
       }
     );
 
@@ -442,17 +583,22 @@ $('propertyForm').onsubmit = async event => {
 
     if (!response.ok) {
       status.textContent =
-        data.error || 'Não foi possível salvar o imóvel.';
+        data.error ||
+        'Não foi possível salvar o imóvel.';
       return;
     }
 
     const propertyId =
       id ||
       data.id ||
-      data.property?.id;
+      (data.property && data.property.id);
 
-    if ($('pImages').files.length && propertyId) {
+    if (
+      $('pImages').files.length &&
+      propertyId
+    ) {
       status.textContent = 'Enviando fotos...';
+
       await uploadPropertyImages(propertyId);
     }
 
@@ -465,12 +611,19 @@ $('propertyForm').onsubmit = async event => {
     showTab('propertiesPanel');
 
   } catch (error) {
+    console.error(error);
+
     status.textContent =
-      error.message || 'Não foi possível salvar o imóvel.';
+      error.message ||
+      'Falha ao salvar o imóvel.';
   } finally {
     saveButton.disabled = false;
   }
 };
+
+/* =========================
+   EDITAR IMÓVEL
+========================= */
 
 function editProperty(id) {
   const property = properties.find(
@@ -490,24 +643,39 @@ function editProperty(id) {
 
   $('pPropertyStatus').value =
     property.property_status ||
-    'Disponível';
+    (
+      ['Disponível', 'Reservado', 'Vendido', 'Alugado']
+        .includes(property.status)
+        ? property.status
+        : 'Disponível'
+    );
 
-  $('pCity').value = property.city || 'Caieiras';
-  $('pNeighborhood').value = property.neighborhood || '';
+  $('pCity').value = property.city || '';
+  $('pNeighborhood').value =
+    property.neighborhood || '';
 
   $('pSalePrice').value =
     property.sale_price ??
-    property.price ??
-    '';
+    (
+      (property.purpose || property.status) === 'Venda'
+        ? property.price || ''
+        : ''
+    );
 
   $('pRentPrice').value =
-    property.rent_price ?? '';
+    property.rent_price ??
+    (
+      (property.purpose || property.status) === 'Locação'
+        ? property.price || ''
+        : ''
+    );
 
   $('pArea').value = property.area || 0;
   $('pBedrooms').value = property.bedrooms || 0;
   $('pBathrooms').value = property.bathrooms || 0;
   $('pParking').value = property.parking || 0;
-  $('pDescription').value = property.description || '';
+  $('pDescription').value =
+    property.description || '';
 
   $('formTitle').textContent = 'Editar imóvel';
   $('saveProperty').textContent = 'Salvar alterações';
@@ -519,18 +687,33 @@ function editProperty(id) {
   showTab('newPanel');
 }
 
+/* =========================
+   LIMPAR FORMULÁRIO
+========================= */
+
 function resetForm() {
   $('propertyForm').reset();
 
   $('pId').value = '';
   $('pCity').value = 'Caieiras';
+
+  $('pBedrooms').value = 0;
+  $('pBathrooms').value = 0;
+  $('pParking').value = 0;
+
   $('pPurpose').value = 'Venda';
   $('pPropertyStatus').value = 'Disponível';
 
-  $('formTitle').textContent = 'Adicionar novo imóvel';
-  $('saveProperty').textContent = 'Publicar imóvel';
+  $('formTitle').textContent =
+    'Adicionar novo imóvel';
+
+  $('saveProperty').textContent =
+    'Publicar imóvel';
+
   $('cancelEdit').classList.add('hidden');
+
   $('imagePreview').innerHTML = '';
+  $('propertyFormStatus').textContent = '';
 
   updatePriceFields();
 }
@@ -540,27 +723,53 @@ $('cancelEdit').onclick = () => {
   showTab('propertiesPanel');
 };
 
+/* =========================
+   EXCLUIR
+========================= */
+
 async function deleteProperty(id) {
-  if (!confirm('Excluir este imóvel?')) return;
-
-  const response = await fetch(
-    `/api/admin/properties/${id}`,
-    {
-      method: 'DELETE',
-      headers: headers()
-    }
-  );
-
-  if (!response.ok) {
-    alert('Não foi possível excluir o imóvel.');
+  if (!confirm('Excluir este imóvel?')) {
     return;
   }
 
-  await refreshProperties();
+  try {
+    const response = await fetch(
+      `/api/admin/properties/${id}`,
+      {
+        method: 'DELETE',
+        headers: headers()
+      }
+    );
+
+    if (!response.ok) {
+      let data = {};
+
+      try {
+        data = await response.json();
+      } catch {}
+
+      alert(
+        data.error ||
+        'Não foi possível excluir o imóvel.'
+      );
+
+      return;
+    }
+
+    await refreshProperties();
+
+  } catch (error) {
+    alert('Falha ao excluir o imóvel.');
+  }
 }
+
+/* =========================
+   CSV
+========================= */
 
 function parseCSV(text) {
   const rows = [];
+
   let row = [];
   let cell = '';
   let quote = false;
@@ -581,7 +790,9 @@ function parseCSV(text) {
       (char === '\n' || char === '\r') &&
       !quote
     ) {
-      if (char === '\r' && next === '\n') i++;
+      if (char === '\r' && next === '\n') {
+        i++;
+      }
 
       row.push(cell.trim());
 
@@ -598,19 +809,24 @@ function parseCSV(text) {
 
   if (cell || row.length) {
     row.push(cell.trim());
-    rows.push(row);
+
+    if (row.some(Boolean)) {
+      rows.push(row);
+    }
   }
 
-  if (rows.length < 2) return [];
+  if (rows.length < 2) {
+    return [];
+  }
 
-  const headersRow = rows[0].map(value =>
-    value.toLowerCase().trim()
+  const headings = rows[0].map(item =>
+    item.trim().toLowerCase()
   );
 
   return rows.slice(1).map(values =>
     Object.fromEntries(
-      headersRow.map((key, index) => [
-        key,
+      headings.map((heading, index) => [
+        heading,
         values[index] ?? ''
       ])
     )
@@ -620,7 +836,12 @@ function parseCSV(text) {
 $('csvFile').onchange = async () => {
   const file = $('csvFile').files[0];
 
-  if (!file) return;
+  if (!file) {
+    csvItems = [];
+    $('importCsv').disabled = true;
+    $('importPreview').textContent = '';
+    return;
+  }
 
   csvItems = parseCSV(await file.text());
 
@@ -650,25 +871,41 @@ $('importCsv').onclick = async () => {
       }
     );
 
-    const data = await response.json();
+    let data = {};
 
-    $('importStatus').textContent = response.ok
-      ? `${data.inserted} imóveis importados com sucesso.`
-      : data.error || 'Falha na importação.';
+    try {
+      data = await response.json();
+    } catch {}
 
-    if (response.ok) {
-      csvItems = [];
-      $('csvFile').value = '';
-      $('importPreview').textContent = '';
-      await refreshProperties();
+    if (!response.ok) {
+      $('importStatus').textContent =
+        data.error ||
+        'Falha na importação.';
+
+      return;
     }
+
+    $('importStatus').textContent =
+      `${data.inserted || csvItems.length} imóveis importados com sucesso.`;
+
+    csvItems = [];
+    $('csvFile').value = '';
+    $('importPreview').textContent = '';
+
+    await refreshProperties();
+
   } catch (error) {
     $('importStatus').textContent =
       'Falha na importação.';
+  } finally {
+    $('importCsv').disabled =
+      !csvItems.length;
   }
-
-  $('importCsv').disabled = false;
 };
+
+/* =========================
+   INICIALIZAÇÃO
+========================= */
 
 updatePriceFields();
 
