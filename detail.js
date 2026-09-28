@@ -27,18 +27,26 @@ const esc = value =>
     }[ch])
   );
 
+/* =========================================
+   FOTOS DO IMÓVEL
+========================================= */
+
 function getImages(property) {
   const images = [];
 
-  if (
-    Array.isArray(property.images) &&
-    property.images.length
-  ) {
+  if (Array.isArray(property.images)) {
     property.images.forEach(item => {
-      const url =
-        typeof item === 'string'
-          ? item
-          : item.url || item.image_url || '';
+      let url = '';
+
+      if (typeof item === 'string') {
+        url = item;
+      } else if (item && typeof item === 'object') {
+        url =
+          item.url ||
+          item.image_url ||
+          item.public_url ||
+          '';
+      }
 
       if (url && !images.includes(url)) {
         images.push(url);
@@ -56,24 +64,86 @@ function getImages(property) {
   return images;
 }
 
-function selectImage(url, button) {
+/* =========================================
+   GALERIA
+========================================= */
+
+function setupGallery(images) {
+  if (!images.length) return;
+
+  let current = 0;
+
   const mainImage =
-    document.getElementById('detailMainImage');
+    document.getElementById('propertyMainImage');
 
-  if (!mainImage) return;
+  const counter =
+    document.getElementById('propertyImageCounter');
 
-  mainImage.src = url;
+  const thumbs =
+    Array.from(
+      document.querySelectorAll(
+        '.property-gallery-thumb'
+      )
+    );
 
-  document
-    .querySelectorAll('.detail-thumbnail')
-    .forEach(item => {
-      item.classList.remove('active');
+  const previous =
+    document.getElementById('galleryPrevious');
+
+  const next =
+    document.getElementById('galleryNext');
+
+  function selectImage(index) {
+    if (index < 0) {
+      index = images.length - 1;
+    }
+
+    if (index >= images.length) {
+      index = 0;
+    }
+
+    current = index;
+
+    if (mainImage) {
+      mainImage.src = images[current];
+    }
+
+    if (counter) {
+      counter.textContent =
+        `${current + 1} / ${images.length}`;
+    }
+
+    thumbs.forEach((thumb, thumbIndex) => {
+      thumb.classList.toggle(
+        'active',
+        thumbIndex === current
+      );
     });
-
-  if (button) {
-    button.classList.add('active');
   }
+
+  thumbs.forEach((thumb, index) => {
+    thumb.addEventListener('click', () => {
+      selectImage(index);
+    });
+  });
+
+  if (previous) {
+    previous.addEventListener('click', () => {
+      selectImage(current - 1);
+    });
+  }
+
+  if (next) {
+    next.addEventListener('click', () => {
+      selectImage(current + 1);
+    });
+  }
+
+  selectImage(0);
 }
+
+/* =========================================
+   LEAD
+========================================= */
 
 async function submitLead(event, property) {
   event.preventDefault();
@@ -110,6 +180,7 @@ async function submitLead(event, property) {
 
     if (response.ok) {
       form.reset();
+
       status.textContent =
         'Contato enviado. Obrigado!';
     } else {
@@ -117,18 +188,23 @@ async function submitLead(event, property) {
         data.error ||
         'Não foi possível enviar.';
     }
+
   } catch (error) {
     status.textContent =
-      'Não foi possível enviar.';
+      'Não foi possível enviar. Tente novamente.';
   }
 }
+
+/* =========================================
+   CARREGAR IMÓVEL
+========================================= */
 
 async function load() {
   if (!id) {
     root.innerHTML = `
       <div class="empty-state">
         <h2>Imóvel inválido</h2>
-        <a href="/">Voltar</a>
+        <a href="/">Voltar aos imóveis</a>
       </div>
     `;
 
@@ -136,18 +212,17 @@ async function load() {
   }
 
   try {
-    const response = await fetch(
-      `/api/properties/${id}`,
-      {
-        cache: 'no-store'
-      }
-    );
+    const response =
+      await fetch(
+        `/api/properties/${id}`,
+        { cache: 'no-store' }
+      );
 
     if (!response.ok) {
       root.innerHTML = `
         <div class="empty-state">
           <h2>Imóvel não encontrado</h2>
-          <a href="/">Voltar</a>
+          <a href="/">Voltar aos imóveis</a>
         </div>
       `;
 
@@ -159,235 +234,293 @@ async function load() {
     document.title =
       `${p.title} | Brito Imóveis`;
 
-    const message =
-      `Olá, tenho interesse no imóvel: ` +
-      `${p.title} (${p.neighborhood}, ${p.city}).`;
-
     const images = getImages(p);
 
     const mainImage =
-      images.length
-        ? images[0]
-        : '';
+      images[0] || '';
 
-    const gallery = images.length
-      ? `
-        <div class="detail-gallery">
+    const message =
+      `Olá, tenho interesse no imóvel: ${p.title} (${p.neighborhood}, ${p.city}).`;
 
-          <div class="detail-main-image-wrap">
-            <img
-              id="detailMainImage"
-              class="detail-image"
-              src="${esc(mainImage)}"
-              alt="${esc(p.title)}"
-            />
-          </div>
+    const whatsappUrl =
+      `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}`;
 
-          ${
-            images.length > 1
-              ? `
-                <div class="detail-thumbnails">
-                  ${images.map((image, index) => `
-                    <button
-                      type="button"
-                      class="detail-thumbnail ${
-                        index === 0 ? 'active' : ''
-                      }"
-                      data-image="${esc(image)}"
-                      aria-label="Ver foto ${index + 1}"
-                    >
-                      <img
-                        src="${esc(image)}"
-                        alt="Foto ${index + 1} de ${esc(p.title)}"
-                      />
-                    </button>
-                  `).join('')}
-                </div>
-              `
-              : ''
-          }
+    const thumbsHtml =
+      images.map((image, index) => `
+        <button
+          type="button"
+          class="property-gallery-thumb ${
+            index === 0 ? 'active' : ''
+          }"
+          aria-label="Ver foto ${index + 1}"
+        >
+          <img
+            src="${esc(image)}"
+            alt="Foto ${index + 1} de ${esc(p.title)}"
+            loading="lazy"
+          >
+        </button>
+      `).join('');
 
-        </div>
-      `
-      : `
-        <div class="detail-no-image">
-          Sem foto disponível
-        </div>
-      `;
+    const bedrooms =
+      Number(p.bedrooms || 0);
+
+    const bathrooms =
+      Number(p.bathrooms || 0);
+
+    const parking =
+      Number(p.parking || 0);
+
+    const area =
+      Number(p.area || 0);
 
     root.innerHTML = `
-      <div class="detail-breadcrumb">
+
+      <div class="property-breadcrumb">
         <a href="/">Início</a>
         <span>›</span>
-        <span>${esc(p.type)}</span>
+        <a href="/">Imóveis</a>
+        <span>›</span>
+        <span>${esc(p.neighborhood || '')}</span>
+        <span>›</span>
+        <strong>Imóvel #${esc(p.id)}</strong>
       </div>
 
-      <section class="detail-hero">
-        <div>
-          <span class="eyebrow">
-            ${esc(p.status)} · ${esc(p.type)}
-          </span>
+      <div class="property-main-grid">
 
-          <h1>${esc(p.title)}</h1>
+        <section class="property-gallery-column">
 
-          <p class="detail-location">
-            ${esc(p.neighborhood)}, ${esc(p.city)}
-          </p>
-        </div>
+          ${
+            mainImage
+              ? `
+                <div class="property-gallery-main">
 
-        <div class="detail-price">
-          ${money(p.price)}
-        </div>
-      </section>
+                  <span class="property-sale-badge">
+                    ${esc(p.status || 'Disponível')}
+                  </span>
 
-      <div class="detail-layout">
+                  <img
+                    id="propertyMainImage"
+                    src="${esc(mainImage)}"
+                    alt="${esc(p.title)}"
+                  >
 
-        <div>
+                  ${
+                    images.length > 1
+                      ? `
+                        <button
+                          type="button"
+                          id="galleryPrevious"
+                          class="property-gallery-arrow property-gallery-arrow-left"
+                          aria-label="Foto anterior"
+                        >
+                          ‹
+                        </button>
 
-          ${gallery}
+                        <button
+                          type="button"
+                          id="galleryNext"
+                          class="property-gallery-arrow property-gallery-arrow-right"
+                          aria-label="Próxima foto"
+                        >
+                          ›
+                        </button>
+                      `
+                      : ''
+                  }
 
-          <div class="detail-features">
+                  <span
+                    id="propertyImageCounter"
+                    class="property-gallery-counter"
+                  >
+                    1 / ${images.length}
+                  </span>
 
-            ${
-              p.bedrooms
-                ? `
-                  <div>
-                    <strong>${p.bedrooms}</strong>
-                    <span>quartos</span>
-                  </div>
-                `
-                : ''
-            }
+                </div>
 
-            ${
-              p.bathrooms
-                ? `
-                  <div>
-                    <strong>${p.bathrooms}</strong>
-                    <span>banheiros</span>
-                  </div>
-                `
-                : ''
-            }
+                ${
+                  images.length > 1
+                    ? `
+                      <div class="property-gallery-thumbnails">
+                        ${thumbsHtml}
+                      </div>
+                    `
+                    : ''
+                }
+              `
+              : `
+                <div class="property-no-photo">
+                  Sem fotos disponíveis
+                </div>
+              `
+          }
 
-            ${
-              p.parking
-                ? `
-                  <div>
-                    <strong>${p.parking}</strong>
-                    <span>vagas</span>
-                  </div>
-                `
-                : ''
-            }
+          <div class="property-feature-grid">
 
-            <div>
-              <strong>${p.area}</strong>
-              <span>m²</span>
+            <div class="property-feature-card">
+              <span class="property-feature-icon">▰</span>
+              <div>
+                <strong>${bedrooms}</strong>
+                <span>quartos</span>
+              </div>
+            </div>
+
+            <div class="property-feature-card">
+              <span class="property-feature-icon">◉</span>
+              <div>
+                <strong>${bathrooms}</strong>
+                <span>banheiros</span>
+              </div>
+            </div>
+
+            <div class="property-feature-card">
+              <span class="property-feature-icon">▣</span>
+              <div>
+                <strong>${parking}</strong>
+                <span>vagas</span>
+              </div>
+            </div>
+
+            <div class="property-feature-card">
+              <span class="property-feature-icon">↗</span>
+              <div>
+                <strong>${area}</strong>
+                <span>m²</span>
+              </div>
             </div>
 
           </div>
 
-          <article class="detail-description">
+          <article class="property-description-card">
+
             <h2>Sobre o imóvel</h2>
-            <p>${esc(p.description)}</p>
+
+            <div class="property-title-line"></div>
+
+            <p>
+              ${esc(p.description || 'Entre em contato para mais informações sobre este imóvel.')}
+            </p>
+
           </article>
 
-        </div>
+        </section>
 
-        <aside class="contact-card">
+        <aside class="property-contact-card">
 
-          <h2>Tenho interesse</h2>
+          <span class="property-code">
+            CÓD. ${esc(p.id)}
+          </span>
 
-          <p>
-            Envie seus dados ou fale direto
-            pelo WhatsApp.
+          <h1>
+            ${esc(p.title)}
+          </h1>
+
+          <p class="property-location">
+            📍 ${esc(p.neighborhood || '')} – ${esc(p.city || '')}/SP
           </p>
 
+          <div class="property-price">
+            ${money(p.price)}
+          </div>
+
           <a
-            class="btn btn-whatsapp btn-block"
-            href="https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message)}"
+            class="property-whatsapp-button"
+            href="${whatsappUrl}"
             target="_blank"
             rel="noopener"
           >
-            WhatsApp
+            Falar no WhatsApp
           </a>
-
-          <div class="divider">
-            <span>ou</span>
-          </div>
 
           <form id="detailLeadForm">
 
-            <div class="field-group">
-              <label>Nome</label>
+            <div class="property-field">
+              <label for="detailName">
+                Nome
+              </label>
+
               <input
+                id="detailName"
                 name="name"
+                type="text"
+                placeholder="Seu nome"
                 required
-              />
+              >
             </div>
 
-            <div class="field-group">
-              <label>Telefone / WhatsApp</label>
+            <div class="property-field">
+              <label for="detailPhone">
+                Telefone
+              </label>
+
               <input
+                id="detailPhone"
                 name="phone"
+                type="tel"
+                placeholder="(11) 9 9999-9999"
                 required
-              />
+              >
             </div>
 
-            <div class="field-group">
-              <label>E-mail</label>
+            <div class="property-field">
+              <label for="detailEmail">
+                E-mail
+              </label>
+
               <input
+                id="detailEmail"
                 name="email"
                 type="email"
-              />
+                placeholder="seu@email.com"
+              >
             </div>
 
-            <div class="field-group">
-              <label>Mensagem</label>
+            <div class="property-field">
+              <label for="detailMessage">
+                Mensagem
+              </label>
+
               <textarea
+                id="detailMessage"
                 name="message"
-                rows="3"
-              >Tenho interesse neste imóvel.</textarea>
+                rows="4"
+              >Tenho interesse neste imóvel (cód. ${esc(p.id)}). Gostaria de mais informações.</textarea>
             </div>
 
             <button
-              class="btn btn-primary btn-block"
+              class="property-send-button"
               type="submit"
             >
-              Solicitar contato
+              Enviar mensagem
             </button>
 
             <p class="form-status"></p>
 
           </form>
 
+          <div class="property-safe-message">
+            🔒 Seus dados estão seguros
+          </div>
+
         </aside>
 
       </div>
     `;
 
-    document
-      .querySelectorAll('.detail-thumbnail')
-      .forEach(button => {
-        button.addEventListener(
-          'click',
-          () => {
-            selectImage(
-              button.dataset.image,
-              button
-            );
-          }
-        );
-      });
+    setupGallery(images);
 
-    document
-      .getElementById('detailLeadForm')
-      .addEventListener(
+    const leadForm =
+      document.getElementById(
+        'detailLeadForm'
+      );
+
+    if (leadForm) {
+      leadForm.addEventListener(
         'submit',
         event =>
           submitLead(event, p)
       );
+    }
 
   } catch (error) {
     console.error(error);
@@ -395,11 +528,15 @@ async function load() {
     root.innerHTML = `
       <div class="empty-state">
         <h2>Não foi possível carregar o imóvel</h2>
-        <a href="/">Voltar</a>
+        <a href="/">Voltar aos imóveis</a>
       </div>
     `;
   }
 }
+
+/* =========================================
+   ANO DO RODAPÉ
+========================================= */
 
 const year =
   document.getElementById('currentYear');
@@ -410,4 +547,3 @@ if (year) {
 }
 
 load();
-// Galeria de fotos ativa
