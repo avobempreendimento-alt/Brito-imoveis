@@ -410,3 +410,4 @@ if (year) {
 }
 
 load();
+// Galeria de fotos ativa
