@@ -3,10 +3,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { URL } = require('node:url');
 const { Pool } = require('pg');
+const Busboy = require('busboy');
 
 const PORT = Number(process.env.PORT || 8000);
 const HOST = process.env.HOST || '0.0.0.0';
 const ADMIN_TOKEN = String(process.env.ADMIN_TOKEN || '').trim();
+
+const SUPABASE_URL = String(
+  process.env.SUPABASE_URL || ''
+).replace(/\/+$/, '');
+
+const SUPABASE_SECRET_KEY = String(
+  process.env.SUPABASE_SECRET_KEY || ''
+).trim();
+
+const STORAGE_BUCKET = 'imoveis';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -27,6 +38,7 @@ const mimeTypes = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon'
 };
 
@@ -71,13 +83,209 @@ function isAdmin(req) {
   return Boolean(ADMIN_TOKEN) && received === ADMIN_TOKEN;
 }
 
-/*
-  Converte os dados enviados pelo admin.js para
-  o formato atualmente existente na tabela properties.
+// =========================================
+// UPLOAD DE FOTOS
+// =========================================
 
-  Os campos novos também são recebidos, mas mantemos
-  compatibilidade com price/status do banco atual.
-*/
+function safeFileName(fileName) {
+  const ext = path.extname(fileName || '').toLowerCase();
+
+  const allowedExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp'
+  ];
+
+  const safeExt = allowedExtensions.includes(ext)
+    ? ext
+    : '.jpg';
+
+  const base = path
+    .basename(fileName || 'foto', ext)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+
+  return `${base || 'foto'}${safeExt}`;
+}
+
+function readMultipartImages(req) {
+  return new Promise((resolve, reject) => {
+    let busboy;
+
+    try {
+      busboy = Busboy({
+        headers: req.headers,
+        limits: {
+          files: 12,
+          fileSize: 4 * 1024 * 1024
+        }
+      });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    const files = [];
+    const pending = [];
+    let uploadError = null;
+
+    busboy.on(
+      'file',
+      (fieldname, file, info) => {
+        if (fieldname !== 'images') {
+          file.resume();
+          return;
+        }
+
+        const mimeType = String(
+          info.mimeType || ''
+        ).toLowerCase();
+
+        const allowedTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+
+        if (!allowedTypes.includes(mimeType)) {
+          uploadError = new Error(
+            'Use somente imagens JPG, PNG ou WEBP.'
+          );
+
+          file.resume();
+          return;
+        }
+
+        const chunks = [];
+        let tooLarge = false;
+
+        const finished = new Promise(
+          (resolveFile, rejectFile) => {
+            file.on('limit', () => {
+              tooLarge = true;
+            });
+
+            file.on('data', chunk => {
+              chunks.push(chunk);
+            });
+
+            file.on('end', () => {
+              if (tooLarge) {
+                rejectFile(
+                  new Error(
+                    'Cada foto deve ter no máximo 4 MB.'
+                  )
+                );
+                return;
+              }
+
+              files.push({
+                filename: safeFileName(
+                  info.filename
+                ),
+                mimeType,
+                buffer: Buffer.concat(chunks)
+              });
+
+              resolveFile();
+            });
+
+            file.on('error', rejectFile);
+          }
+        );
+
+        pending.push(finished);
+      }
+    );
+
+    busboy.on('filesLimit', () => {
+      uploadError = new Error(
+        'Envie no máximo 12 fotos por vez.'
+      );
+    });
+
+    busboy.on('error', reject);
+
+    busboy.on('finish', async () => {
+      try {
+        await Promise.all(pending);
+
+        if (uploadError) {
+          reject(uploadError);
+          return;
+        }
+
+        resolve(files);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    req.pipe(busboy);
+  });
+}
+
+async function uploadToSupabase(
+  storagePath,
+  file
+) {
+  if (
+    !SUPABASE_URL ||
+    !SUPABASE_SECRET_KEY
+  ) {
+    throw new Error(
+      'Supabase Storage não configurado no servidor.'
+    );
+  }
+
+  const encodedPath = storagePath
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+  const uploadUrl =
+    `${SUPABASE_URL}/storage/v1/object/` +
+    `${STORAGE_BUCKET}/${encodedPath}`;
+
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization:
+        `Bearer ${SUPABASE_SECRET_KEY}`,
+      apikey: SUPABASE_SECRET_KEY,
+      'Content-Type': file.mimeType,
+      'x-upsert': 'false'
+    },
+    body: file.buffer
+  });
+
+  if (!response.ok) {
+    const responseText =
+      await response.text();
+
+    console.error(
+      'Erro do Supabase Storage:',
+      response.status,
+      responseText
+    );
+
+    throw new Error(
+      'Não foi possível enviar a foto para o Supabase.'
+    );
+  }
+
+  const publicUrl =
+    `${SUPABASE_URL}/storage/v1/object/public/` +
+    `${STORAGE_BUCKET}/${encodedPath}`;
+
+  return publicUrl;
+}
+
 function sanitizePropertyInput(body) {
   const purpose = String(
     body.purpose ||
@@ -129,18 +337,10 @@ function sanitizePropertyInput(body) {
     parking: Number(body.parking || 0),
     area: Number(body.area || 0),
 
-    /*
-      Foto NÃO é obrigatória.
-      O upload de arquivos será tratado separadamente.
-    */
     image: String(body.image || '').trim(),
 
     description: String(body.description || '').trim(),
 
-    /*
-      Mantemos status com Venda / Locação / Venda e Locação
-      porque é o formato usado pela tabela atual.
-    */
     status: purpose,
 
     purpose,
@@ -175,10 +375,6 @@ function validProperty(p) {
     return false;
   }
 
-  /*
-    IMPORTANTE:
-    imagem não é mais obrigatória.
-  */
   return true;
 }
 
@@ -273,9 +469,12 @@ async function handleApi(req, res, url) {
     req.method === 'GET' &&
     propertyMatch
   ) {
+    const propertyId =
+      Number(propertyMatch[1]);
+
     const result = await pool.query(
       'SELECT * FROM properties WHERE id = $1',
-      [Number(propertyMatch[1])]
+      [propertyId]
     );
 
     if (!result.rows.length) {
@@ -284,10 +483,49 @@ async function handleApi(req, res, url) {
       });
     }
 
+    const property = result.rows[0];
+
+    try {
+      const imagesResult = await pool.query(
+        `
+        SELECT
+          id,
+          image_url,
+          storage_path,
+          position,
+          is_cover
+        FROM property_images
+        WHERE property_id = $1
+        ORDER BY position ASC, id ASC
+        `,
+        [propertyId]
+      );
+
+      property.images =
+        imagesResult.rows.map(item => ({
+          id: item.id,
+          url: item.image_url,
+          image_url: item.image_url,
+          storage_path: item.storage_path,
+          position: item.position,
+          is_cover: item.is_cover
+        }));
+
+    } catch (error) {
+      console.error(
+        'Erro ao carregar fotos do imóvel:',
+        error
+      );
+
+      property.images = property.image
+        ? [property.image]
+        : [];
+    }
+
     return json(
       res,
       200,
-      result.rows[0]
+      property
     );
   }
 
@@ -699,6 +937,10 @@ async function handleApi(req, res, url) {
         });
       }
 
+      /*
+        Não apagamos a foto já existente quando o
+        formulário de edição não envia uma nova URL.
+      */
       const result = await pool.query(
         `
         UPDATE properties
@@ -712,7 +954,10 @@ async function handleApi(req, res, url) {
           bathrooms = $7,
           parking = $8,
           area = $9,
-          image = $10,
+          image = CASE
+            WHEN $10 <> '' THEN $10
+            ELSE image
+          END,
           description = $11,
           status = $12,
           featured = $13
@@ -763,6 +1008,224 @@ async function handleApi(req, res, url) {
   }
 
   // =========================================
+  // ADMIN - ENVIAR FOTOS DO IMÓVEL
+  // =========================================
+
+  const imagesMatch =
+    pathname.match(
+      /^\/api\/admin\/properties\/(\d+)\/images$/
+    );
+
+  if (
+    imagesMatch &&
+    req.method === 'POST'
+  ) {
+    if (!isAdmin(req)) {
+      return json(res, 401, {
+        error: 'Não autorizado.'
+      });
+    }
+
+    const propertyId =
+      Number(imagesMatch[1]);
+
+    try {
+      if (
+        !SUPABASE_URL ||
+        !SUPABASE_SECRET_KEY
+      ) {
+        return json(res, 503, {
+          error:
+            'Supabase Storage não configurado.'
+        });
+      }
+
+      const propertyResult =
+        await pool.query(
+          `
+          SELECT id, image
+          FROM properties
+          WHERE id = $1
+          `,
+          [propertyId]
+        );
+
+      if (!propertyResult.rows.length) {
+        return json(res, 404, {
+          error: 'Imóvel não encontrado.'
+        });
+      }
+
+      const files =
+        await readMultipartImages(req);
+
+      if (!files.length) {
+        return json(res, 400, {
+          error:
+            'Selecione pelo menos uma foto.'
+        });
+      }
+
+      const existingResult =
+        await pool.query(
+          `
+          SELECT COUNT(*)::int AS total
+          FROM property_images
+          WHERE property_id = $1
+          `,
+          [propertyId]
+        );
+
+      const existingCount =
+        Number(
+          existingResult.rows[0]?.total || 0
+        );
+
+      const uploadedImages = [];
+
+      for (
+        let index = 0;
+        index < files.length;
+        index++
+      ) {
+        const file = files[index];
+
+        const uniqueName =
+          `${Date.now()}-${index}-` +
+          `${file.filename}`;
+
+        const storagePath =
+          `${propertyId}/${uniqueName}`;
+
+        const publicUrl =
+          await uploadToSupabase(
+            storagePath,
+            file
+          );
+
+        const position =
+          existingCount + index;
+
+        const isCover =
+          existingCount === 0 &&
+          index === 0;
+
+        const insertResult =
+          await pool.query(
+            `
+            INSERT INTO property_images
+            (
+              property_id,
+              image_url,
+              storage_path,
+              position,
+              is_cover
+            )
+            VALUES ($1,$2,$3,$4,$5)
+            RETURNING
+              id,
+              image_url,
+              storage_path,
+              position,
+              is_cover
+            `,
+            [
+              propertyId,
+              publicUrl,
+              storagePath,
+              position,
+              isCover
+            ]
+          );
+
+        uploadedImages.push(
+          insertResult.rows[0]
+        );
+
+        /*
+          A primeira foto cadastrada vira a capa
+          usada pela listagem atual do site.
+        */
+        if (isCover) {
+          await pool.query(
+            `
+            UPDATE properties
+            SET image = $1
+            WHERE id = $2
+            `,
+            [
+              publicUrl,
+              propertyId
+            ]
+          );
+        }
+      }
+
+      /*
+        Caso existam registros antigos de fotos mas
+        properties.image esteja vazio, usamos a primeira
+        imagem disponível como capa.
+      */
+      const currentImage =
+        String(
+          propertyResult.rows[0].image || ''
+        ).trim();
+
+      if (
+        !currentImage &&
+        uploadedImages.length &&
+        existingCount > 0
+      ) {
+        const firstImage =
+          await pool.query(
+            `
+            SELECT image_url
+            FROM property_images
+            WHERE property_id = $1
+            ORDER BY
+              is_cover DESC,
+              position ASC,
+              id ASC
+            LIMIT 1
+            `,
+            [propertyId]
+          );
+
+        if (firstImage.rows.length) {
+          await pool.query(
+            `
+            UPDATE properties
+            SET image = $1
+            WHERE id = $2
+            `,
+            [
+              firstImage.rows[0].image_url,
+              propertyId
+            ]
+          );
+        }
+      }
+
+      return json(res, 201, {
+        ok: true,
+        images: uploadedImages
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao enviar fotos:',
+        error
+      );
+
+      return json(res, 400, {
+        error:
+          error.message ||
+          'Não foi possível enviar as fotos.'
+      });
+    }
+  }
+
+  // =========================================
   // ADMIN - EXCLUIR IMÓVEL
   // =========================================
 
@@ -784,21 +1247,47 @@ async function handleApi(req, res, url) {
     const id =
       Number(adminPropertyMatch[1]);
 
-    const result = await pool.query(
-      'DELETE FROM properties WHERE id = $1',
-      [id]
-    );
+    try {
+      /*
+        Apagamos primeiro os registros das fotos.
+        Os arquivos do Storage podem ser tratados
+        separadamente depois, se necessário.
+      */
+      await pool.query(
+        `
+        DELETE FROM property_images
+        WHERE property_id = $1
+        `,
+        [id]
+      );
 
-    if (!result.rowCount) {
-      return json(res, 404, {
+      const result = await pool.query(
+        'DELETE FROM properties WHERE id = $1',
+        [id]
+      );
+
+      if (!result.rowCount) {
+        return json(res, 404, {
+          error:
+            'Imóvel não encontrado.'
+        });
+      }
+
+      return json(res, 200, {
+        ok: true
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao excluir imóvel:',
+        error
+      );
+
+      return json(res, 400, {
         error:
-          'Imóvel não encontrado.'
+          'Não foi possível excluir o imóvel.'
       });
     }
-
-    return json(res, 200, {
-      ok: true
-    });
   }
 
   return json(res, 404, {
@@ -901,11 +1390,6 @@ function serveStatic(req, res, url) {
     'Content-Type':
       mimeTypes[ext] ||
       'application/octet-stream',
-
-    /*
-      Evita que alterações no admin.js/admin.html
-      fiquem presas no cache do navegador.
-    */
     'Cache-Control': 'no-store'
   });
 
@@ -977,9 +1461,7 @@ server.listen(
       __dirname
     );
 
-    if (
-      !process.env.DATABASE_URL
-    ) {
+    if (!process.env.DATABASE_URL) {
       console.error(
         'ERRO: DATABASE_URL não configurada.'
       );
@@ -988,6 +1470,18 @@ server.listen(
     if (!ADMIN_TOKEN) {
       console.error(
         'ERRO: ADMIN_TOKEN não configurado.'
+      );
+    }
+
+    if (!SUPABASE_URL) {
+      console.error(
+        'ERRO: SUPABASE_URL não configurada.'
+      );
+    }
+
+    if (!SUPABASE_SECRET_KEY) {
+      console.error(
+        'ERRO: SUPABASE_SECRET_KEY não configurada.'
       );
     }
   }
