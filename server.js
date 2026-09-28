@@ -64,24 +64,88 @@ function readJson(req) {
 }
 
 function isAdmin(req) {
-  const received = String(req.headers['x-admin-token'] || '').trim();
+  const received = String(
+    req.headers['x-admin-token'] || ''
+  ).trim();
+
   return Boolean(ADMIN_TOKEN) && received === ADMIN_TOKEN;
 }
 
+/*
+  Converte os dados enviados pelo admin.js para
+  o formato atualmente existente na tabela properties.
+
+  Os campos novos também são recebidos, mas mantemos
+  compatibilidade com price/status do banco atual.
+*/
 function sanitizePropertyInput(body) {
+  const purpose = String(
+    body.purpose ||
+    body.status ||
+    'Venda'
+  ).trim();
+
+  const propertyStatus = String(
+    body.property_status ||
+    'Disponível'
+  ).trim();
+
+  const salePrice =
+    body.sale_price === null ||
+    body.sale_price === undefined ||
+    body.sale_price === ''
+      ? null
+      : Number(body.sale_price);
+
+  const rentPrice =
+    body.rent_price === null ||
+    body.rent_price === undefined ||
+    body.rent_price === ''
+      ? null
+      : Number(body.rent_price);
+
+  let price = Number(body.price || 0);
+
+  if (!price || price <= 0) {
+    if (salePrice && salePrice > 0) {
+      price = salePrice;
+    } else if (rentPrice && rentPrice > 0) {
+      price = rentPrice;
+    }
+  }
+
   return {
     title: String(body.title || '').trim(),
     type: String(body.type || '').trim(),
     city: String(body.city || '').trim(),
     neighborhood: String(body.neighborhood || '').trim(),
-    price: Number(body.price || 0),
+
+    price,
+    salePrice,
+    rentPrice,
+
     bedrooms: Number(body.bedrooms || 0),
     bathrooms: Number(body.bathrooms || 0),
     parking: Number(body.parking || 0),
     area: Number(body.area || 0),
+
+    /*
+      Foto NÃO é obrigatória.
+      O upload de arquivos será tratado separadamente.
+    */
     image: String(body.image || '').trim(),
+
     description: String(body.description || '').trim(),
-    status: String(body.status || 'Venda').trim(),
+
+    /*
+      Mantemos status com Venda / Locação / Venda e Locação
+      porque é o formato usado pela tabela atual.
+    */
+    status: purpose,
+
+    purpose,
+    propertyStatus,
+
     featured:
       body.featured === false ||
       body.featured === 0 ||
@@ -92,29 +156,61 @@ function sanitizePropertyInput(body) {
 }
 
 function validProperty(p) {
-  return (
-    p.title &&
-    p.type &&
-    p.city &&
-    p.neighborhood &&
-    p.price >= 0 &&
-    p.area >= 0 &&
-    /^https?:\/\//i.test(p.image)
-  );
+  if (!p.title) return false;
+  if (!p.type) return false;
+  if (!p.city) return false;
+  if (!p.neighborhood) return false;
+
+  if (
+    !Number.isFinite(p.price) ||
+    p.price <= 0
+  ) {
+    return false;
+  }
+
+  if (
+    !Number.isFinite(p.area) ||
+    p.area <= 0
+  ) {
+    return false;
+  }
+
+  /*
+    IMPORTANTE:
+    imagem não é mais obrigatória.
+  */
+  return true;
 }
 
 async function handleApi(req, res, url) {
   const pathname = url.pathname;
 
-  // LISTAR IMÓVEIS
-  if (req.method === 'GET' && pathname === '/api/properties') {
-    const type = (url.searchParams.get('type') || '').trim();
-    const city = (url.searchParams.get('city') || '').trim();
-    const maxPrice = Number(url.searchParams.get('maxPrice') || 0);
-    const bedrooms = Number(url.searchParams.get('bedrooms') || 0);
-    const status = (url.searchParams.get('status') || '').trim();
+  // =========================================
+  // LISTAR IMÓVEIS PÚBLICOS
+  // =========================================
 
-    let sql = 'SELECT * FROM properties WHERE 1=1';
+  if (
+    req.method === 'GET' &&
+    pathname === '/api/properties'
+  ) {
+    const type =
+      (url.searchParams.get('type') || '').trim();
+
+    const city =
+      (url.searchParams.get('city') || '').trim();
+
+    const maxPrice =
+      Number(url.searchParams.get('maxPrice') || 0);
+
+    const bedrooms =
+      Number(url.searchParams.get('bedrooms') || 0);
+
+    const status =
+      (url.searchParams.get('status') || '').trim();
+
+    let sql =
+      'SELECT * FROM properties WHERE 1=1';
+
     const params = [];
     let index = 1;
 
@@ -125,12 +221,18 @@ async function handleApi(req, res, url) {
     }
 
     if (city) {
-      sql += ` AND (
-        LOWER(city) LIKE LOWER($${index})
-        OR LOWER(neighborhood) LIKE LOWER($${index + 1})
-      )`;
+      sql += `
+        AND (
+          LOWER(city) LIKE LOWER($${index})
+          OR LOWER(neighborhood) LIKE LOWER($${index + 1})
+        )
+      `;
 
-      params.push(`%${city}%`, `%${city}%`);
+      params.push(
+        `%${city}%`,
+        `%${city}%`
+      );
+
       index += 2;
     }
 
@@ -154,16 +256,23 @@ async function handleApi(req, res, url) {
 
     sql += ' ORDER BY featured DESC, id DESC';
 
-    const result = await pool.query(sql, params);
+    const result =
+      await pool.query(sql, params);
 
     return json(res, 200, result.rows);
   }
 
+  // =========================================
   // ABRIR UM IMÓVEL
+  // =========================================
+
   const propertyMatch =
     pathname.match(/^\/api\/properties\/(\d+)$/);
 
-  if (req.method === 'GET' && propertyMatch) {
+  if (
+    req.method === 'GET' &&
+    propertyMatch
+  ) {
     const result = await pool.query(
       'SELECT * FROM properties WHERE id = $1',
       [Number(propertyMatch[1])]
@@ -175,28 +284,50 @@ async function handleApi(req, res, url) {
       });
     }
 
-    return json(res, 200, result.rows[0]);
+    return json(
+      res,
+      200,
+      result.rows[0]
+    );
   }
 
+  // =========================================
   // CADASTRAR LEAD
-  if (req.method === 'POST' && pathname === '/api/leads') {
+  // =========================================
+
+  if (
+    req.method === 'POST' &&
+    pathname === '/api/leads'
+  ) {
     try {
       const body = await readJson(req);
 
-      const name = String(body.name || '').trim();
-      const phone = String(body.phone || '').trim();
-      const email = String(body.email || '').trim();
-      const interest = String(body.interest || 'Contato').trim();
+      const name =
+        String(body.name || '').trim();
 
-      const propertyId = body.propertyId
-        ? Number(body.propertyId)
-        : null;
+      const phone =
+        String(body.phone || '').trim();
 
-      const message = String(body.message || '').trim();
+      const email =
+        String(body.email || '').trim();
+
+      const interest =
+        String(
+          body.interest || 'Contato'
+        ).trim();
+
+      const propertyId =
+        body.propertyId
+          ? Number(body.propertyId)
+          : null;
+
+      const message =
+        String(body.message || '').trim();
 
       if (!name || !phone) {
         return json(res, 400, {
-          error: 'Nome e telefone são obrigatórios.'
+          error:
+            'Nome e telefone são obrigatórios.'
         });
       }
 
@@ -230,7 +361,10 @@ async function handleApi(req, res, url) {
       });
 
     } catch (error) {
-      console.error('Erro ao cadastrar lead:', error);
+      console.error(
+        'Erro ao cadastrar lead:',
+        error
+      );
 
       return json(res, 400, {
         error: 'Dados inválidos.'
@@ -238,22 +372,36 @@ async function handleApi(req, res, url) {
     }
   }
 
-  // ADMIN - TESTAR LOGIN (não acessa o banco de dados)
-  if (pathname === '/api/admin/login' && req.method === 'GET') {
+  // =========================================
+  // ADMIN - LOGIN
+  // =========================================
+
+  if (
+    pathname === '/api/admin/login' &&
+    req.method === 'GET'
+  ) {
     if (!ADMIN_TOKEN) {
       return json(res, 503, {
-        error: 'ADMIN_TOKEN não configurado no Vercel.'
+        error:
+          'ADMIN_TOKEN não configurado no Vercel.'
       });
     }
 
     if (!isAdmin(req)) {
-      return json(res, 401, { error: 'Senha inválida.' });
+      return json(res, 401, {
+        error: 'Senha inválida.'
+      });
     }
 
-    return json(res, 200, { ok: true });
+    return json(res, 200, {
+      ok: true
+    });
   }
 
+  // =========================================
   // ADMIN - LEADS
+  // =========================================
+
   if (
     pathname === '/api/admin/leads' &&
     req.method === 'GET'
@@ -274,10 +422,17 @@ async function handleApi(req, res, url) {
       ORDER BY leads.id DESC
     `);
 
-    return json(res, 200, result.rows);
+    return json(
+      res,
+      200,
+      result.rows
+    );
   }
 
+  // =========================================
   // ADMIN - LISTAR IMÓVEIS
+  // =========================================
+
   if (
     pathname === '/api/admin/properties' &&
     req.method === 'GET'
@@ -292,10 +447,17 @@ async function handleApi(req, res, url) {
       'SELECT * FROM properties ORDER BY id DESC'
     );
 
-    return json(res, 200, result.rows);
+    return json(
+      res,
+      200,
+      result.rows
+    );
   }
 
+  // =========================================
   // ADMIN - CADASTRAR IMÓVEL
+  // =========================================
+
   if (
     pathname === '/api/admin/properties' &&
     req.method === 'POST'
@@ -307,14 +469,15 @@ async function handleApi(req, res, url) {
     }
 
     try {
-      const p = sanitizePropertyInput(
-        await readJson(req)
-      );
+      const body = await readJson(req);
+
+      const p =
+        sanitizePropertyInput(body);
 
       if (!validProperty(p)) {
         return json(res, 400, {
           error:
-            'Preencha os campos obrigatórios corretamente.'
+            'Verifique título, tipo, cidade, bairro, preço e área.'
         });
       }
 
@@ -362,58 +525,247 @@ async function handleApi(req, res, url) {
 
       return json(res, 201, {
         ok: true,
-        id: Number(result.rows[0].id)
+        id: Number(
+          result.rows[0].id
+        )
       });
 
     } catch (error) {
-      console.error('Erro ao cadastrar imóvel:', error);
+      console.error(
+        'Erro ao cadastrar imóvel:',
+        error
+      );
 
       return json(res, 400, {
-        error: 'Dados inválidos.'
+        error:
+          'Não foi possível cadastrar o imóvel.'
       });
     }
   }
 
-  // ADMIN - IMPORTAR IMÓVEIS EM MASSA
-  if (pathname === '/api/admin/properties/bulk' && req.method === 'POST') {
-    if (!isAdmin(req)) return json(res, 401, { error: 'Não autorizado.' });
+  // =========================================
+  // ADMIN - IMPORTAÇÃO EM MASSA
+  // =========================================
+
+  if (
+    pathname === '/api/admin/properties/bulk' &&
+    req.method === 'POST'
+  ) {
+    if (!isAdmin(req)) {
+      return json(res, 401, {
+        error: 'Não autorizado.'
+      });
+    }
+
     try {
-      const body = await readJson(req);
-      const items = Array.isArray(body.properties) ? body.properties.slice(0, 1000) : [];
-      if (!items.length) return json(res, 400, { error: 'A planilha não contém imóveis.' });
-      const client = await pool.connect();
+      const body =
+        await readJson(req);
+
+      const items =
+        Array.isArray(body.properties)
+          ? body.properties.slice(0, 1000)
+          : [];
+
+      if (!items.length) {
+        return json(res, 400, {
+          error:
+            'A planilha não contém imóveis.'
+        });
+      }
+
+      const client =
+        await pool.connect();
+
       let inserted = 0;
+
       try {
         await client.query('BEGIN');
+
         for (const raw of items) {
-          const p = sanitizePropertyInput(raw);
-          if (!validProperty(p)) throw new Error(`Linha inválida: ${p.title || 'sem título'}`);
-          await client.query(`INSERT INTO properties (title,type,city,neighborhood,price,bedrooms,bathrooms,parking,area,image,description,status,featured) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [p.title,p.type,p.city,p.neighborhood,p.price,p.bedrooms,p.bathrooms,p.parking,p.area,p.image,p.description,p.status,p.featured]);
+          const p =
+            sanitizePropertyInput(raw);
+
+          if (!validProperty(p)) {
+            throw new Error(
+              `Linha inválida: ${
+                p.title || 'sem título'
+              }`
+            );
+          }
+
+          await client.query(
+            `
+            INSERT INTO properties
+            (
+              title,
+              type,
+              city,
+              neighborhood,
+              price,
+              bedrooms,
+              bathrooms,
+              parking,
+              area,
+              image,
+              description,
+              status,
+              featured
+            )
+            VALUES
+            (
+              $1,$2,$3,$4,$5,$6,$7,
+              $8,$9,$10,$11,$12,$13
+            )
+            `,
+            [
+              p.title,
+              p.type,
+              p.city,
+              p.neighborhood,
+              p.price,
+              p.bedrooms,
+              p.bathrooms,
+              p.parking,
+              p.area,
+              p.image,
+              p.description,
+              p.status,
+              p.featured
+            ]
+          );
+
           inserted++;
         }
+
         await client.query('COMMIT');
-      } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
-      return json(res, 201, { ok: true, inserted });
+
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+
+      } finally {
+        client.release();
+      }
+
+      return json(res, 201, {
+        ok: true,
+        inserted
+      });
+
     } catch (error) {
-      console.error('Erro na importação em massa:', error);
-      return json(res, 400, { error: error.message || 'Falha na importação.' });
+      console.error(
+        'Erro na importação em massa:',
+        error
+      );
+
+      return json(res, 400, {
+        error:
+          error.message ||
+          'Falha na importação.'
+      });
     }
   }
 
+  // =========================================
   // ADMIN - EDITAR IMÓVEL
-  const editPropertyMatch = pathname.match(/^\/api\/admin\/properties\/(\d+)$/);
-  if (editPropertyMatch && req.method === 'PUT') {
-    if (!isAdmin(req)) return json(res, 401, { error: 'Não autorizado.' });
+  // =========================================
+
+  const editPropertyMatch =
+    pathname.match(
+      /^\/api\/admin\/properties\/(\d+)$/
+    );
+
+  if (
+    editPropertyMatch &&
+    req.method === 'PUT'
+  ) {
+    if (!isAdmin(req)) {
+      return json(res, 401, {
+        error: 'Não autorizado.'
+      });
+    }
+
     try {
-      const p = sanitizePropertyInput(await readJson(req));
-      if (!validProperty(p)) return json(res, 400, { error: 'Preencha os campos obrigatórios corretamente.' });
-      const result = await pool.query(`UPDATE properties SET title=$1,type=$2,city=$3,neighborhood=$4,price=$5,bedrooms=$6,bathrooms=$7,parking=$8,area=$9,image=$10,description=$11,status=$12,featured=$13 WHERE id=$14`, [p.title,p.type,p.city,p.neighborhood,p.price,p.bedrooms,p.bathrooms,p.parking,p.area,p.image,p.description,p.status,p.featured,Number(editPropertyMatch[1])]);
-      if (!result.rowCount) return json(res, 404, { error: 'Imóvel não encontrado.' });
-      return json(res, 200, { ok: true });
-    } catch (error) { return json(res, 400, { error: 'Dados inválidos.' }); }
+      const body =
+        await readJson(req);
+
+      const p =
+        sanitizePropertyInput(body);
+
+      if (!validProperty(p)) {
+        return json(res, 400, {
+          error:
+            'Verifique título, tipo, cidade, bairro, preço e área.'
+        });
+      }
+
+      const result = await pool.query(
+        `
+        UPDATE properties
+        SET
+          title = $1,
+          type = $2,
+          city = $3,
+          neighborhood = $4,
+          price = $5,
+          bedrooms = $6,
+          bathrooms = $7,
+          parking = $8,
+          area = $9,
+          image = $10,
+          description = $11,
+          status = $12,
+          featured = $13
+        WHERE id = $14
+        `,
+        [
+          p.title,
+          p.type,
+          p.city,
+          p.neighborhood,
+          p.price,
+          p.bedrooms,
+          p.bathrooms,
+          p.parking,
+          p.area,
+          p.image,
+          p.description,
+          p.status,
+          p.featured,
+          Number(
+            editPropertyMatch[1]
+          )
+        ]
+      );
+
+      if (!result.rowCount) {
+        return json(res, 404, {
+          error:
+            'Imóvel não encontrado.'
+        });
+      }
+
+      return json(res, 200, {
+        ok: true
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao editar imóvel:',
+        error
+      );
+
+      return json(res, 400, {
+        error:
+          'Não foi possível atualizar o imóvel.'
+      });
+    }
   }
 
+  // =========================================
   // ADMIN - EXCLUIR IMÓVEL
+  // =========================================
+
   const adminPropertyMatch =
     pathname.match(
       /^\/api\/admin\/properties\/(\d+)$/
@@ -429,7 +781,8 @@ async function handleApi(req, res, url) {
       });
     }
 
-    const id = Number(adminPropertyMatch[1]);
+    const id =
+      Number(adminPropertyMatch[1]);
 
     const result = await pool.query(
       'DELETE FROM properties WHERE id = $1',
@@ -438,7 +791,8 @@ async function handleApi(req, res, url) {
 
     if (!result.rowCount) {
       return json(res, 404, {
-        error: 'Imóvel não encontrado.'
+        error:
+          'Imóvel não encontrado.'
       });
     }
 
@@ -452,7 +806,10 @@ async function handleApi(req, res, url) {
   });
 }
 
-// PROCURA OS ARQUIVOS DO SITE
+// =========================================
+// ARQUIVOS ESTÁTICOS
+// =========================================
+
 function findStaticFile(requestPath) {
   const relativePath =
     requestPath.replace(/^\/+/, '');
@@ -460,13 +817,22 @@ function findStaticFile(requestPath) {
   const possibleRoots = [
     process.cwd(),
     __dirname,
-    path.join(process.cwd(), 'public'),
-    path.join(__dirname, 'public')
+    path.join(
+      process.cwd(),
+      'public'
+    ),
+    path.join(
+      __dirname,
+      'public'
+    )
   ];
 
   for (const root of possibleRoots) {
     const candidate =
-      path.resolve(root, relativePath);
+      path.resolve(
+        root,
+        relativePath
+      );
 
     const safeRoot =
       path.resolve(root);
@@ -488,7 +854,7 @@ function findStaticFile(requestPath) {
         return candidate;
       }
     } catch (error) {
-      // Continua procurando
+      // continua procurando
     }
   }
 
@@ -503,7 +869,8 @@ function serveStatic(req, res, url) {
   };
 
   const requestPath =
-    aliases[url.pathname] || url.pathname;
+    aliases[url.pathname] ||
+    url.pathname;
 
   const filePath =
     findStaticFile(requestPath);
@@ -511,16 +878,13 @@ function serveStatic(req, res, url) {
   if (!filePath) {
     console.error(
       'Arquivo não encontrado:',
-      requestPath,
-      'cwd:',
-      process.cwd(),
-      '__dirname:',
-      __dirname
+      requestPath
     );
 
     res.writeHead(404, {
       'Content-Type':
-        'text/plain; charset=utf-8'
+        'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store'
     });
 
     return res.end(
@@ -529,26 +893,45 @@ function serveStatic(req, res, url) {
   }
 
   const ext =
-    path.extname(filePath).toLowerCase();
+    path.extname(
+      filePath
+    ).toLowerCase();
 
   res.writeHead(200, {
     'Content-Type':
       mimeTypes[ext] ||
-      'application/octet-stream'
+      'application/octet-stream',
+
+    /*
+      Evita que alterações no admin.js/admin.html
+      fiquem presas no cache do navegador.
+    */
+    'Cache-Control': 'no-store'
   });
 
-  fs.createReadStream(filePath).pipe(res);
+  fs.createReadStream(
+    filePath
+  ).pipe(res);
 }
+
+// =========================================
+// SERVIDOR
+// =========================================
 
 const server = http.createServer(
   async (req, res) => {
     const url = new URL(
       req.url,
-      `http://${req.headers.host || `${HOST}:${PORT}`}`
+      `http://${
+        req.headers.host ||
+        `${HOST}:${PORT}`
+      }`
     );
 
     try {
-      if (url.pathname.startsWith('/api/')) {
+      if (
+        url.pathname.startsWith('/api/')
+      ) {
         return await handleApi(
           req,
           res,
@@ -556,7 +939,11 @@ const server = http.createServer(
         );
       }
 
-      return serveStatic(req, res, url);
+      return serveStatic(
+        req,
+        res,
+        url
+      );
 
     } catch (error) {
       console.error(
@@ -565,39 +952,43 @@ const server = http.createServer(
       );
 
       return json(res, 500, {
-        error: 'Erro interno do servidor.'
+        error:
+          'Erro interno do servidor.'
       });
     }
   }
 );
 
-server.listen(PORT, HOST, () => {
-  console.log(
-    `Brito Imóveis rodando na porta ${PORT}`
-  );
-
-  console.log(
-    'Diretório atual:',
-    process.cwd()
-  );
-
-  console.log(
-    'Diretório do servidor:',
-    __dirname
-  );
-
-  if (!process.env.DATABASE_URL) {
-    console.error(
-      'ERRO: DATABASE_URL não configurada.'
-    );
-  }
-
-  if (
-    ADMIN_TOKEN ===
-    'troque-esta-senha'
-  ) {
+server.listen(
+  PORT,
+  HOST,
+  () => {
     console.log(
-      'AVISO: configure ADMIN_TOKEN em produção.'
+      `Brito Imóveis rodando na porta ${PORT}`
     );
+
+    console.log(
+      'Diretório atual:',
+      process.cwd()
+    );
+
+    console.log(
+      'Diretório do servidor:',
+      __dirname
+    );
+
+    if (
+      !process.env.DATABASE_URL
+    ) {
+      console.error(
+        'ERRO: DATABASE_URL não configurada.'
+      );
+    }
+
+    if (!ADMIN_TOKEN) {
+      console.error(
+        'ERRO: ADMIN_TOKEN não configurado.'
+      );
+    }
   }
-});
+);
