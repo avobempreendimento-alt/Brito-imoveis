@@ -3,14 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Imóvel | Brito Imóveis</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <header class="site-header"><div class="container header-inner"><a href="/" class="brand"><span class="brand-mark">BI</span><span class="brand-name">Brito Imóveis</span></a><a class="btn btn-outline" href="/">Voltar aos imóveis</a></div></header>
-  <main class="detail-page"><div class="container" id="propertyDetail"><div class="loading-card">Carregando imóvel...</div></div></main>
-  <footer class="site-footer"><div class="container footer-bottom"><small>© <span id="currentYear"></span> Brito Imóveis.</small></div></footer>
+
+<body class="property-detail-body">
+
+  <!-- CABEÇALHO -->
+  <header class="property-topbar">
+    <div class="container property-topbar-inner">
+
+      <a href="/" class="property-logo-link" aria-label="Brito Imóveis - Início">
+        <img
+          src="/logo-brito.png"
+          alt="Brito Imóveis"
+          class="property-logo"
+        >
+      </a>
+
+      <nav class="property-nav" aria-label="Navegação principal">
+        <a href="/">Início</a>
+        <a href="/#imoveis">Imóveis</a>
+        <a href="/#sobre">Sobre nós</a>
+        <a href="/#contato">Contato</a>
+      </nav>
+
+      <a
+        class="property-header-whatsapp"
+        href="https://wa.me/5511963882742"
+        target="_blank"
+        rel="noopener"
+      >
+        Fale pelo WhatsApp
+      </a>
+
+    </div>
+  </header>
+
+  <!-- CONTEÚDO DO IMÓVEL -->
+  <main class="property-detail-page">
+    <div class="container">
+
+      <div id="propertyDetail">
+        <div class="loading-card">
+          Carregando imóvel...
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- RODAPÉ -->
+  <footer class="property-footer">
+    <div class="container property-footer-inner">
+
+      <img
+        src="/logo-brito.png"
+        alt="Brito Imóveis"
+        class="property-footer-logo"
+      >
+
+      <small>
+        © <span id="currentYear"></span> Brito Imóveis.
+        Todos os direitos reservados.
+      </small>
+
+    </div>
+  </footer>
+
   <script src="detail.js"></script>
+
 </body>
 </html>
