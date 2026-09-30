@@ -399,26 +399,27 @@ async function handleApi(req, res, url) {
     req.method === 'GET' &&
     pathname === '/api/properties'
   ) {
-    const type =
-      (url.searchParams.get('type') || '').trim();
+    const type = (url.searchParams.get('type') || '').trim();
+    const city = (url.searchParams.get('city') || '').trim();
+    const purpose = (url.searchParams.get('purpose') || '').trim();
+    const minPrice = Number(url.searchParams.get('minPrice') || 0);
+    const maxPrice = Number(url.searchParams.get('maxPrice') || 0);
+    const minArea = Number(url.searchParams.get('minArea') || 0);
+    const maxArea = Number(url.searchParams.get('maxArea') || 0);
+    const bedrooms = Number(url.searchParams.get('bedrooms') || 0);
+    const suites = Number(url.searchParams.get('suites') || 0);
+    const parking = Number(url.searchParams.get('parking') || 0);
+    const status = (url.searchParams.get('status') || '').trim();
 
-    const city =
-      (url.searchParams.get('city') || '').trim();
-
-    const maxPrice =
-      Number(url.searchParams.get('maxPrice') || 0);
-
-    const bedrooms =
-      Number(url.searchParams.get('bedrooms') || 0);
-
-    const status =
-      (url.searchParams.get('status') || '').trim();
-
-    let sql =
-      'SELECT * FROM properties WHERE 1=1';
-
+    let sql = 'SELECT * FROM properties WHERE 1=1';
     const params = [];
     let index = 1;
+
+    if (purpose) {
+      sql += ` AND (purpose = $${index} OR purpose = 'Venda e Locação' OR status = $${index})`;
+      params.push(purpose);
+      index++;
+    }
 
     if (type) {
       sql += ` AND type = $${index}`;
@@ -427,33 +428,50 @@ async function handleApi(req, res, url) {
     }
 
     if (city) {
-      sql += `
-        AND (
-          LOWER(city) LIKE LOWER($${index})
-          OR LOWER(neighborhood) LIKE LOWER($${index + 1})
-        )
-      `;
-
-      params.push(
-        `%${city}%`,
-        `%${city}%`
-      );
-
-      index += 2;
-    }
-
-    if (maxPrice) {
-      sql += ` AND price <= $${index}`;
-      params.push(maxPrice);
+      sql += ` AND (LOWER(city) LIKE LOWER($${index}) OR LOWER(neighborhood) LIKE LOWER($${index}))`;
+      params.push(`%${city}%`);
       index++;
     }
 
+    const priceExpression = purpose === 'Locação'
+      ? 'COALESCE(rent_price, price)'
+      : 'COALESCE(sale_price, price)';
+
+    if (minPrice) {
+      sql += ` AND ${priceExpression} >= $${index}`;
+      params.push(minPrice);
+      index++;
+    }
+    if (maxPrice) {
+      sql += ` AND ${priceExpression} <= $${index}`;
+      params.push(maxPrice);
+      index++;
+    }
+    if (minArea) {
+      sql += ` AND area >= $${index}`;
+      params.push(minArea);
+      index++;
+    }
+    if (maxArea) {
+      sql += ` AND area <= $${index}`;
+      params.push(maxArea);
+      index++;
+    }
     if (bedrooms) {
       sql += ` AND bedrooms >= $${index}`;
       params.push(bedrooms);
       index++;
     }
-
+    if (suites) {
+      sql += ` AND suites >= $${index}`;
+      params.push(suites);
+      index++;
+    }
+    if (parking) {
+      sql += ` AND parking >= $${index}`;
+      params.push(parking);
+      index++;
+    }
     if (status) {
       sql += ` AND status = $${index}`;
       params.push(status);

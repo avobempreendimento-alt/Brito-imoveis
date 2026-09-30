@@ -7,10 +7,15 @@ const grid = document.getElementById('propertiesGrid');
 const resultCount = document.getElementById('resultCount');
 const emptyState = document.getElementById('emptyState');
 const searchForm = document.getElementById('searchForm');
+const purposeFilter = document.getElementById('finalidade');
 const typeFilter = document.getElementById('tipo');
 const cityFilter = document.getElementById('cidade');
 const priceFilter = document.getElementById('preco');
+const areaFilter = document.getElementById('area');
 const bedroomFilter = document.getElementById('quartos');
+const suitesFilter = document.getElementById('suites');
+const parkingFilter = document.getElementById('vagas');
+const clearFilters = document.getElementById('clearFilters');
 const menuToggle = document.getElementById('menuToggle');
 const mainNav = document.getElementById('mainNav');
 
@@ -33,12 +38,28 @@ function propertyCard(p) {
   </article>`;
 }
 
+function addRange(params, value, minName, maxName) {
+  if (!value) return;
+  const [min, max] = value.split('-');
+  if (min && Number(min) > 0) params.set(minName, min);
+  if (max && Number(max) > 0) params.set(maxName, max);
+}
+
+function updatePriceLabel() {
+  const label = document.querySelector('label[for="preco"]');
+  if (label) label.textContent = purposeFilter.value === 'Locação' ? 'Preço do aluguel' : 'Preço de venda';
+}
+
 async function loadProperties() {
   const params = new URLSearchParams();
+  if (purposeFilter.value) params.set('purpose', purposeFilter.value);
   if (typeFilter.value) params.set('type', typeFilter.value);
   if (cityFilter.value.trim()) params.set('city', cityFilter.value.trim());
-  if (priceFilter.value) params.set('maxPrice', priceFilter.value);
+  addRange(params, priceFilter.value, 'minPrice', 'maxPrice');
+  addRange(params, areaFilter.value, 'minArea', 'maxArea');
   if (bedroomFilter.value) params.set('bedrooms', bedroomFilter.value);
+  if (suitesFilter.value) params.set('suites', suitesFilter.value);
+  if (parkingFilter.value) params.set('parking', parkingFilter.value);
   grid.innerHTML = '<div class="loading-card">Buscando imóveis...</div>';
   try {
     const response = await fetch(`/api/properties?${params}`);
@@ -54,8 +75,9 @@ async function loadProperties() {
 }
 
 searchForm.addEventListener('submit', e => { e.preventDefault(); loadProperties(); });
-[typeFilter, priceFilter, bedroomFilter].forEach(el => el.addEventListener('change', loadProperties));
-let cityTimer; cityFilter.addEventListener('input', () => { clearTimeout(cityTimer); cityTimer = setTimeout(loadProperties, 250); });
+[purposeFilter, typeFilter, priceFilter, areaFilter, bedroomFilter, suitesFilter, parkingFilter].forEach(el => el.addEventListener('change', () => { updatePriceLabel(); loadProperties(); }));
+let cityTimer; cityFilter.addEventListener('input', () => { clearTimeout(cityTimer); cityTimer = setTimeout(loadProperties, 300); });
+clearFilters.addEventListener('click', () => { searchForm.reset(); purposeFilter.value = 'Venda'; updatePriceLabel(); loadProperties(); });
 
 menuToggle.addEventListener('click', () => { const open = mainNav.classList.toggle('open'); menuToggle.setAttribute('aria-expanded', String(open)); });
 mainNav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mainNav.classList.remove('open'); menuToggle.setAttribute('aria-expanded', 'false'); }));
@@ -80,4 +102,5 @@ ownerLeadForm.addEventListener('submit', async e => {
 
 document.getElementById('currentYear').textContent = new Date().getFullYear();
 configureWhatsApp();
+updatePriceLabel();
 loadProperties();

@@ -1096,3 +1096,47 @@ body.lightbox-open { overflow: hidden; }
   .property-lightbox-counter { top: 12px; left: 12px; }
   .property-lightbox-thumb { flex-basis: 92px; width: 92px; height: 58px; }
 }
+
+/* =========================================
+   FILTRO COMPLETO DA HOME
+   Mantém o visual original e amplia apenas a busca.
+========================================= */
+.search-panel-complete {
+  grid-template-columns: 1fr;
+}
+.search-panel-complete .search-button,
+.search-panel-complete .search-clear-button {
+  min-height: 48px;
+  align-self: end;
+}
+.search-clear-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(212, 175, 90, .65);
+  background: transparent;
+  color: #fff;
+}
+.search-clear-button:hover {
+  background: rgba(212, 175, 90, .12);
+}
+@media (min-width: 700px) {
+  .search-panel-complete {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .search-panel-complete .filter-location {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 1050px) {
+  .search-panel-complete {
+    grid-template-columns: .9fr 1.1fr 1fr 1fr 1fr 1fr;
+    align-items: end;
+  }
+  .search-panel-complete .filter-location {
+    grid-column: span 4;
+  }
+  .search-panel-complete .search-button {
+    grid-column: span 2;
+  }
+}
