@@ -138,6 +138,69 @@ function setupGallery(images) {
     });
   }
 
+  /* TELA CHEIA */
+  const lightbox = document.createElement('div');
+  lightbox.className = 'property-lightbox';
+  lightbox.setAttribute('aria-hidden', 'true');
+  lightbox.innerHTML = `
+    <button type="button" class="property-lightbox-close" aria-label="Fechar galeria">×</button>
+    <button type="button" class="property-lightbox-arrow property-lightbox-prev" aria-label="Foto anterior">‹</button>
+    <img class="property-lightbox-image" alt="Foto do imóvel em tela cheia">
+    <button type="button" class="property-lightbox-arrow property-lightbox-next" aria-label="Próxima foto">›</button>
+    <span class="property-lightbox-counter"></span>
+  `;
+  document.body.appendChild(lightbox);
+
+  const lightboxImage = lightbox.querySelector('.property-lightbox-image');
+  const lightboxCounter = lightbox.querySelector('.property-lightbox-counter');
+  const lightboxClose = lightbox.querySelector('.property-lightbox-close');
+  const lightboxPrev = lightbox.querySelector('.property-lightbox-prev');
+  const lightboxNext = lightbox.querySelector('.property-lightbox-next');
+
+  function updateLightbox() {
+    lightboxImage.src = images[current];
+    lightboxCounter.textContent = `${current + 1} / ${images.length}`;
+  }
+
+  function openLightbox() {
+    updateLightbox();
+    lightbox.classList.add('open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('lightbox-open');
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('lightbox-open');
+  }
+
+  function lightboxMove(step) {
+    selectImage(current + step);
+    updateLightbox();
+  }
+
+  if (mainImage) {
+    mainImage.classList.add('property-main-image-clickable');
+    mainImage.setAttribute('title', 'Clique para ampliar');
+    mainImage.addEventListener('click', openLightbox);
+  }
+
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxPrev.addEventListener('click', () => lightboxMove(-1));
+  lightboxNext.addEventListener('click', () => lightboxMove(1));
+
+  lightbox.addEventListener('click', event => {
+    if (event.target === lightbox) closeLightbox();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (!lightbox.classList.contains('open')) return;
+    if (event.key === 'Escape') closeLightbox();
+    if (event.key === 'ArrowLeft') lightboxMove(-1);
+    if (event.key === 'ArrowRight') lightboxMove(1);
+  });
+
   selectImage(0);
 }
 
