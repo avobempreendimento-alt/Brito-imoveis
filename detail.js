@@ -92,6 +92,55 @@ function setupGallery(images) {
   const next =
     document.getElementById('galleryNext');
 
+  // Galeria ampliada em tela cheia
+  const lightbox = document.createElement('div');
+  lightbox.className = 'property-lightbox';
+  lightbox.setAttribute('aria-hidden', 'true');
+  lightbox.innerHTML = `
+    <div class="property-lightbox-backdrop"></div>
+    <div class="property-lightbox-dialog" role="dialog" aria-modal="true" aria-label="Galeria de fotos do imóvel">
+      <button type="button" class="property-lightbox-close" aria-label="Fechar galeria">×</button>
+      <div class="property-lightbox-counter"></div>
+      <button type="button" class="property-lightbox-arrow property-lightbox-arrow-left" aria-label="Foto anterior">‹</button>
+      <img class="property-lightbox-image" alt="Foto ampliada do imóvel">
+      <button type="button" class="property-lightbox-arrow property-lightbox-arrow-right" aria-label="Próxima foto">›</button>
+      <div class="property-lightbox-thumbs"></div>
+    </div>
+  `;
+  document.body.appendChild(lightbox);
+
+  const lightboxImage = lightbox.querySelector('.property-lightbox-image');
+  const lightboxCounter = lightbox.querySelector('.property-lightbox-counter');
+  const lightboxThumbs = lightbox.querySelector('.property-lightbox-thumbs');
+
+  lightboxThumbs.innerHTML = images.map((image, index) => `
+    <button type="button" class="property-lightbox-thumb" data-index="${index}" aria-label="Ver foto ${index + 1}">
+      <img src="${image}" alt="Foto ${index + 1}" loading="lazy">
+    </button>
+  `).join('');
+
+  function updateLightbox() {
+    lightboxImage.src = images[current];
+    lightboxCounter.textContent = `${current + 1} / ${images.length}`;
+    lightbox.querySelectorAll('.property-lightbox-thumb').forEach((thumb, index) => {
+      thumb.classList.toggle('active', index === current);
+      if (index === current) thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  }
+
+  function openLightbox() {
+    updateLightbox();
+    lightbox.classList.add('open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('lightbox-open');
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('lightbox-open');
+  }
+
   function selectImage(index) {
     if (index < 0) {
       index = images.length - 1;
@@ -138,67 +187,33 @@ function setupGallery(images) {
     });
   }
 
-  /* TELA CHEIA */
-  const lightbox = document.createElement('div');
-  lightbox.className = 'property-lightbox';
-  lightbox.setAttribute('aria-hidden', 'true');
-  lightbox.innerHTML = `
-    <button type="button" class="property-lightbox-close" aria-label="Fechar galeria">×</button>
-    <button type="button" class="property-lightbox-arrow property-lightbox-prev" aria-label="Foto anterior">‹</button>
-    <img class="property-lightbox-image" alt="Foto do imóvel em tela cheia">
-    <button type="button" class="property-lightbox-arrow property-lightbox-next" aria-label="Próxima foto">›</button>
-    <span class="property-lightbox-counter"></span>
-  `;
-  document.body.appendChild(lightbox);
-
-  const lightboxImage = lightbox.querySelector('.property-lightbox-image');
-  const lightboxCounter = lightbox.querySelector('.property-lightbox-counter');
-  const lightboxClose = lightbox.querySelector('.property-lightbox-close');
-  const lightboxPrev = lightbox.querySelector('.property-lightbox-prev');
-  const lightboxNext = lightbox.querySelector('.property-lightbox-next');
-
-  function updateLightbox() {
-    lightboxImage.src = images[current];
-    lightboxCounter.textContent = `${current + 1} / ${images.length}`;
-  }
-
-  function openLightbox() {
-    updateLightbox();
-    lightbox.classList.add('open');
-    lightbox.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('lightbox-open');
-  }
-
-  function closeLightbox() {
-    lightbox.classList.remove('open');
-    lightbox.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('lightbox-open');
-  }
-
-  function lightboxMove(step) {
-    selectImage(current + step);
-    updateLightbox();
-  }
-
   if (mainImage) {
-    mainImage.classList.add('property-main-image-clickable');
-    mainImage.setAttribute('title', 'Clique para ampliar');
+    mainImage.classList.add('property-gallery-main-clickable');
+    mainImage.title = 'Clique para ampliar';
     mainImage.addEventListener('click', openLightbox);
   }
 
-  lightboxClose.addEventListener('click', closeLightbox);
-  lightboxPrev.addEventListener('click', () => lightboxMove(-1));
-  lightboxNext.addEventListener('click', () => lightboxMove(1));
-
-  lightbox.addEventListener('click', event => {
-    if (event.target === lightbox) closeLightbox();
+  lightbox.querySelector('.property-lightbox-close').addEventListener('click', closeLightbox);
+  lightbox.querySelector('.property-lightbox-backdrop').addEventListener('click', closeLightbox);
+  lightbox.querySelector('.property-lightbox-arrow-left').addEventListener('click', () => {
+    selectImage(current - 1);
+    updateLightbox();
   });
-
-  document.addEventListener('keydown', event => {
+  lightbox.querySelector('.property-lightbox-arrow-right').addEventListener('click', () => {
+    selectImage(current + 1);
+    updateLightbox();
+  });
+  lightboxThumbs.addEventListener('click', (event) => {
+    const button = event.target.closest('.property-lightbox-thumb');
+    if (!button) return;
+    selectImage(Number(button.dataset.index));
+    updateLightbox();
+  });
+  document.addEventListener('keydown', (event) => {
     if (!lightbox.classList.contains('open')) return;
     if (event.key === 'Escape') closeLightbox();
-    if (event.key === 'ArrowLeft') lightboxMove(-1);
-    if (event.key === 'ArrowRight') lightboxMove(1);
+    if (event.key === 'ArrowLeft') { selectImage(current - 1); updateLightbox(); }
+    if (event.key === 'ArrowRight') { selectImage(current + 1); updateLightbox(); }
   });
 
   selectImage(0);
