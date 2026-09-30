@@ -346,6 +346,9 @@ async function load() {
     const bathrooms =
       Number(p.bathrooms || 0);
 
+    const suites =
+      Number(p.suites || 0);
+
     const parking =
       Number(p.parking || 0);
 
@@ -434,39 +437,26 @@ async function load() {
           }
 
           <div class="property-feature-grid">
-
             <div class="property-feature-card">
-              <span class="property-feature-icon">▰</span>
-              <div>
-                <strong>${bedrooms}</strong>
-                <span>quartos</span>
-              </div>
+              <span class="property-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7v10M21 17V10a2 2 0 0 0-2-2h-7v9M3 13h18M5 10h5v3H5z"/></svg></span>
+              <div><strong>${bedrooms}</strong><span>quartos</span></div>
             </div>
-
             <div class="property-feature-card">
-              <span class="property-feature-icon">◉</span>
-              <div>
-                <strong>${bathrooms}</strong>
-                <span>banheiros</span>
-              </div>
+              <span class="property-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM7 12V7a3 3 0 0 1 6 0M4 19l-1 2M20 19l1 2"/></svg></span>
+              <div><strong>${bathrooms}</strong><span>banheiros</span></div>
             </div>
-
             <div class="property-feature-card">
-              <span class="property-feature-icon">▣</span>
-              <div>
-                <strong>${parking}</strong>
-                <span>vagas</span>
-              </div>
+              <span class="property-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8v9M21 17v-6a2 2 0 0 0-2-2h-7v8M3 13h18M5 10h5v3H5zM17 3l.8 1.7 1.9.3-1.4 1.3.4 1.9L17 7.3l-1.7.9.4-1.9L14.3 5l1.9-.3z"/></svg></span>
+              <div><strong>${suites}</strong><span>suítes</span></div>
             </div>
-
             <div class="property-feature-card">
-              <span class="property-feature-icon">↗</span>
-              <div>
-                <strong>${area}</strong>
-                <span>m²</span>
-              </div>
+              <span class="property-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 17h14l-1-6-2-3H8l-2 3zM7 17v2M17 17v2M7 13h10M8 8l1-2h6l1 2"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/></svg></span>
+              <div><strong>${parking}</strong><span>vagas</span></div>
             </div>
-
+            <div class="property-feature-card">
+              <span class="property-feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 18 18 6M12 6h6v6M6 12v6h6"/></svg></span>
+              <div><strong>${area}</strong><span>m²</span></div>
+            </div>
           </div>
 
           <article class="property-description-card">
@@ -509,6 +499,11 @@ async function load() {
           >
             Falar no WhatsApp
           </a>
+
+          <button class="property-share-button" id="sharePropertyButton" type="button">
+            <span aria-hidden="true">↗</span> Compartilhar imóvel
+          </button>
+          <p class="property-share-status" id="sharePropertyStatus" aria-live="polite"></p>
 
           <form id="detailLeadForm">
 
@@ -586,6 +581,24 @@ async function load() {
     `;
 
     setupGallery(images);
+
+    const shareButton = document.getElementById('sharePropertyButton');
+    const shareStatus = document.getElementById('sharePropertyStatus');
+
+    if (shareButton) {
+      shareButton.addEventListener('click', async () => {
+        const shareData = { title: p.title, text: `Confira este imóvel: ${p.title}`, url: window.location.href };
+        try {
+          if (navigator.share) { await navigator.share(shareData); return; }
+          await navigator.clipboard.writeText(window.location.href);
+          shareStatus.textContent = 'Link copiado!';
+          setTimeout(() => { shareStatus.textContent = ''; }, 2500);
+        } catch (error) {
+          if (error && error.name === 'AbortError') return;
+          shareStatus.textContent = 'Copie o endereço desta página para compartilhar.';
+        }
+      });
+    }
 
     const leadForm =
       document.getElementById(

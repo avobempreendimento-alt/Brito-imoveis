@@ -1003,9 +1003,10 @@ h3 {
 .property-gallery-thumb.active { opacity:1; border-color:#d4af5a; box-shadow:0 0 0 2px rgba(212,175,90,.15); }
 .property-gallery-thumb img { width:100%; height:100%; object-fit:cover; }
 .property-no-photo { min-height:430px; display:grid; place-items:center; border:1px dashed #b8c2ce; border-radius:10px; background:#e9edf1; color:#718096; font-weight:700; }
-.property-feature-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.8rem; margin-top:1.1rem; }
+.property-feature-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin-top:1.1rem; }
 .property-feature-card { min-height:82px; display:flex; align-items:center; justify-content:center; gap:.7rem; padding:.8rem; border:1px solid #e2e5e9; border-radius:9px; background:#fff; }
-.property-feature-icon { color:#c49a43; font-size:1.3rem; }
+.property-feature-icon { width:28px; height:28px; display:grid; place-items:center; color:#c49a43; flex:0 0 28px; }
+.property-feature-icon svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .property-feature-card strong,.property-feature-card span { display:block; }
 .property-feature-card strong { color:#071b33; font-size:1.15rem; line-height:1.1; }
 .property-feature-card div>span { margin-top:.15rem; color:#718096; font-size:.72rem; }
@@ -1018,7 +1019,10 @@ h3 {
 .property-contact-card h1 { color:#071b33; font-size:clamp(1.45rem,2.3vw,2rem); line-height:1.15; }
 .property-contact-card .property-location { margin-top:.55rem; color:#65758b; font-size:.82rem; }
 .property-contact-card .property-price { margin:1.1rem 0 1.15rem; color:#071b33; font-size:1.7rem; font-weight:800; }
-.property-whatsapp-button { width:100%; min-height:46px; display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem; border-radius:7px; background:#d4af5a; color:#071b33; font-size:.85rem; font-weight:800; }
+.property-whatsapp-button { width:100%; min-height:46px; display:flex; align-items:center; justify-content:center; margin-bottom:.65rem; border-radius:7px; background:#d4af5a; color:#071b33; font-size:.85rem; font-weight:800; }
+.property-share-button { width:100%; min-height:42px; display:flex; align-items:center; justify-content:center; gap:.45rem; margin-bottom:.25rem; border:1px solid #d9dee5; border-radius:7px; background:#fff; color:#263a54; font-size:.8rem; font-weight:800; cursor:pointer; }
+.property-share-button:hover { border-color:#d4af5a; color:#8b6a28; }
+.property-share-status { min-height:1rem; margin:0 0 .65rem; text-align:center; color:#8b6a28; font-size:.7rem; }
 .property-contact-card form { display:grid; gap:.75rem; }
 .property-field { display:grid; gap:.32rem; }
 .property-field label { color:#263a54; font-size:.72rem; font-weight:700; }

@@ -29,6 +29,14 @@ const pool = new Pool({
   connectionTimeoutMillis: 10000
 });
 
+const schemaReady = pool.query(`
+  ALTER TABLE properties
+  ADD COLUMN IF NOT EXISTS suites INTEGER NOT NULL DEFAULT 0
+`).catch(error => {
+  console.error('Erro ao preparar campo de suítes:', error);
+  throw error;
+});
+
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -334,6 +342,7 @@ function sanitizePropertyInput(body) {
 
     bedrooms: Number(body.bedrooms || 0),
     bathrooms: Number(body.bathrooms || 0),
+    suites: Number(body.suites || 0),
     parking: Number(body.parking || 0),
     area: Number(body.area || 0),
 
@@ -379,6 +388,7 @@ function validProperty(p) {
 }
 
 async function handleApi(req, res, url) {
+  await schemaReady;
   const pathname = url.pathname;
 
   // =========================================
@@ -730,6 +740,7 @@ async function handleApi(req, res, url) {
           price,
           bedrooms,
           bathrooms,
+          suites,
           parking,
           area,
           image,
@@ -739,8 +750,8 @@ async function handleApi(req, res, url) {
         )
         VALUES
         (
-          $1,$2,$3,$4,$5,$6,$7,
-          $8,$9,$10,$11,$12,$13
+          $1,$2,$3,$4,$5,$6,$7,$8,
+          $9,$10,$11,$12,$13,$14
         )
         RETURNING id
         `,
@@ -752,6 +763,7 @@ async function handleApi(req, res, url) {
           p.price,
           p.bedrooms,
           p.bathrooms,
+          p.suites,
           p.parking,
           p.area,
           p.image,
@@ -842,6 +854,7 @@ async function handleApi(req, res, url) {
               price,
               bedrooms,
               bathrooms,
+              suites,
               parking,
               area,
               image,
@@ -851,8 +864,8 @@ async function handleApi(req, res, url) {
             )
             VALUES
             (
-              $1,$2,$3,$4,$5,$6,$7,
-              $8,$9,$10,$11,$12,$13
+              $1,$2,$3,$4,$5,$6,$7,$8,
+              $9,$10,$11,$12,$13,$14
             )
             `,
             [
@@ -863,6 +876,7 @@ async function handleApi(req, res, url) {
               p.price,
               p.bedrooms,
               p.bathrooms,
+              p.suites,
               p.parking,
               p.area,
               p.image,
@@ -952,16 +966,17 @@ async function handleApi(req, res, url) {
           price = $5,
           bedrooms = $6,
           bathrooms = $7,
-          parking = $8,
-          area = $9,
+          suites = $8,
+          parking = $9,
+          area = $10,
           image = CASE
-            WHEN $10 <> '' THEN $10
+            WHEN $11 <> '' THEN $11
             ELSE image
           END,
-          description = $11,
-          status = $12,
-          featured = $13
-        WHERE id = $14
+          description = $12,
+          status = $13,
+          featured = $14
+        WHERE id = $15
         `,
         [
           p.title,
@@ -971,6 +986,7 @@ async function handleApi(req, res, url) {
           p.price,
           p.bedrooms,
           p.bathrooms,
+          p.suites,
           p.parking,
           p.area,
           p.image,

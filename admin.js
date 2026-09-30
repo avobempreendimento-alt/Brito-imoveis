@@ -440,6 +440,7 @@ function propertyPayload() {
     area: Number($('pArea').value || 0),
     bedrooms: Number($('pBedrooms').value || 0),
     bathrooms: Number($('pBathrooms').value || 0),
+    suites: Number($('pSuites').value || 0),
     parking: Number($('pParking').value || 0),
 
     description: $('pDescription').value.trim()
@@ -673,6 +674,7 @@ function editProperty(id) {
   $('pArea').value = property.area || 0;
   $('pBedrooms').value = property.bedrooms || 0;
   $('pBathrooms').value = property.bathrooms || 0;
+  $('pSuites').value = property.suites || 0;
   $('pParking').value = property.parking || 0;
   $('pDescription').value =
     property.description || '';
