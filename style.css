@@ -1150,9 +1150,9 @@ body.lightbox-open { overflow: hidden; }
     background:
       linear-gradient(
         90deg,
-        rgba(3, 16, 32, .88) 0%,
-        rgba(7, 27, 51, .66) 48%,
-        rgba(7, 27, 51, .14) 100%
+        rgba(3, 16, 32, .76) 0%,
+        rgba(7, 27, 51, .40) 48%,
+        rgba(7, 27, 51, .03) 100%
       ),
       url('hero-bg.png') center / cover no-repeat;
   }
