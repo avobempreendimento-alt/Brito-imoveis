@@ -1140,3 +1140,46 @@ body.lightbox-open { overflow: hidden; }
     grid-column: span 2;
   }
 }
+
+/* =========================================
+   AJUSTE FINAL HOME — FOTO MAIS VISIVEL + FILTRO EM 2 LINHAS
+   Nao altera o restante do site.
+========================================= */
+@media (min-width: 1050px) {
+  .hero {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(3, 16, 32, .88) 0%,
+        rgba(7, 27, 51, .66) 48%,
+        rgba(7, 27, 51, .14) 100%
+      ),
+      url('hero-bg.png') center / cover no-repeat;
+  }
+
+  .search-panel-complete {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .search-panel-complete .filter-purpose {
+    grid-column: span 1;
+  }
+
+  .search-panel-complete .filter-type {
+    grid-column: span 1;
+  }
+
+  .search-panel-complete .filter-location {
+    grid-column: span 5;
+  }
+
+  .search-panel-complete .search-button,
+  .search-panel-complete .search-clear-button {
+    grid-column: span 1;
+    width: 100%;
+    padding-left: .7rem;
+    padding-right: .7rem;
+    white-space: nowrap;
+  }
+}
