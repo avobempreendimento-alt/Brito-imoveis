@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Conheça a Brito Imóveis, nossa missão, visão e valores em Caieiras e região." />
+  <title>Sobre nós | Brito Imóveis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="about-page">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="brand" aria-label="Brito Imóveis - Página inicial">
+        <img src="./logo-brito.png?v=2" alt="Brito Imóveis - Sonhos em bons negócios" class="brand-logo">
+      </a>
+      <button class="menu-toggle" id="aboutMenuToggle" aria-label="Abrir menu" aria-expanded="false">☰</button>
+      <nav class="main-nav" id="aboutMainNav" aria-label="Navegação principal">
+        <a href="/#imoveis">Imóveis</a>
+        <a href="/#servicos">Serviços</a>
+        <a href="/sobre" class="active">Sobre nós</a>
+        <a href="/#anunciar">Anuncie seu imóvel</a>
+        <a href="/#contato">Contato</a>
+      </nav>
+      <a href="https://wa.me/5511963882742?text=Ol%C3%A1%2C%20quero%20falar%20com%20a%20Brito%20Im%C3%B3veis." class="btn btn-outline header-cta about-whatsapp" target="_blank" rel="noopener">WhatsApp</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="about-hero">
+      <div class="about-hero-copy">
+        <div class="about-hero-copy-inner">
+          <span class="eyebrow">Sobre nós</span>
+          <h1>Brito Imóveis</h1>
+          <p>Conectando pessoas às melhores oportunidades no mercado imobiliário.</p>
+        </div>
+      </div>
+      <div class="about-hero-photo" role="img" aria-label="Casal celebrando a conquista de um imóvel com a chave da nova casa"></div>
+    </section>
+
+    <section class="about-content-section">
+      <div class="container">
+        <div class="about-intro-grid">
+          <div class="about-intro-copy">
+            <span class="about-gold-line"></span>
+            <h2>Quem Somos</h2>
+            <p>A <strong>Brito Imóveis</strong> nasceu com o propósito de conectar pessoas às melhores oportunidades no mercado imobiliário. Trabalhamos com proximidade, transparência e segurança para tornar cada negociação mais simples e confiável.</p>
+            <a href="/#imoveis" class="btn btn-primary">Ver nossos imóveis <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="about-keys-photo">
+            <img src="./sobre-chaves.jpg" alt="Chaves e miniatura de uma casa representando a conquista de um novo imóvel">
+          </div>
+        </div>
+
+        <div class="about-values-grid">
+          <article class="about-value-card">
+            <div class="about-value-icon">◎</div>
+            <h3>Missão</h3>
+            <p>Realizar bons negócios imobiliários, conectando pessoas e contribuindo para a realização de seus projetos e sonhos.</p>
+          </article>
+          <article class="about-value-card">
+            <div class="about-value-icon">▥</div>
+            <h3>Visão</h3>
+            <p>Ser referência em Caieiras e região, reconhecida pela confiança, qualidade e excelência no atendimento.</p>
+          </article>
+          <article class="about-value-card">
+            <div class="about-value-icon">◇</div>
+            <h3>Valores</h3>
+            <p>Ética, transparência, honestidade, respeito e compromisso com nossos clientes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="about-closing">
+      <div class="about-closing-overlay"></div>
+      <div class="container about-closing-inner">
+        <div>
+          <span class="about-gold-line"></span>
+          <h2>Mais do que imóveis,<br>realizamos sonhos.</h2>
+          <p>Atendimento próximo, seguro e transparente<br>em Caieiras e região.</p>
+        </div>
+        <a href="https://wa.me/5511963882742?text=Ol%C3%A1%2C%20quero%20falar%20com%20a%20Brito%20Im%C3%B3veis." class="btn btn-primary about-closing-btn" target="_blank" rel="noopener">Fale no WhatsApp <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="about-mini-footer">
+    <div class="container">© <span id="aboutYear"></span> Brito Imóveis. Todos os direitos reservados.</div>
+  </footer>
+
+  <script>
+    const toggle = document.getElementById('aboutMenuToggle');
+    const nav = document.getElementById('aboutMainNav');
+    toggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+      nav.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }));
+    document.getElementById('aboutYear').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

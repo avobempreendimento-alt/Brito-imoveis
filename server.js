@@ -1388,6 +1388,7 @@ function serveStatic(req, res, url) {
   const aliases = {
     '/': '/index.html',
     '/imovel': '/imovel.html',
+    '/sobre': '/sobre.html',
     '/admin': '/admin.html'
   };
 
